@@ -188,6 +188,28 @@ h2 {
   text-transform: uppercase;
 }
 
+.symbol-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.symbol-chip {
+  display: inline-grid;
+  min-width: 30px;
+  min-height: 28px;
+  place-items: center;
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: var(--badge);
+  color: var(--badge-ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
 .example-board {
   display: grid;
   gap: 5px;
@@ -204,7 +226,7 @@ h2 {
   background: var(--badge);
   color: var(--badge-ink);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   font-weight: 800;
 }
 
@@ -293,10 +315,29 @@ h2 {
   color: var(--ink);
   cursor: default;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.25rem, 8vw, 2rem);
+  font-size: 1.42rem;
   font-weight: 800;
   line-height: 1;
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.cell-main {
+  display: inline-grid;
+  min-width: 0;
+  max-width: 100%;
+  place-items: center;
+  overflow-wrap: anywhere;
+}
+
+.cell-corner {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  color: var(--muted);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .cell:not(:disabled) {
@@ -320,7 +361,20 @@ h2 {
 }
 
 .tile--logic,
+.tile--card,
+.tile--chess,
+.tile--go,
+.tile--dice,
+.tile--domino,
+.tile--animal,
+.tile--direction,
+.tile--vector,
+.tile--target,
+.tile--math,
+.tile--attack,
 .tile--arrow,
+.tile--abstract,
+.tile--divider,
 .tile--mirror-left,
 .tile--mirror-right,
 .tile--conveyor,
@@ -332,6 +386,105 @@ h2 {
 
 .tile--logic {
   border-color: rgba(32, 32, 29, 0.3);
+}
+
+.token-card {
+  border-color: rgba(32, 32, 29, 0.28);
+  background: #fffdfa;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.token-card .cell-main {
+  font-size: 1.04rem;
+}
+
+.token-card .cell-corner {
+  color: var(--ink);
+}
+
+.suit-heart,
+.suit-diamond {
+  box-shadow: inset 0 -4px 0 rgba(156, 61, 53, 0.2);
+}
+
+.suit-club,
+.suit-spade {
+  box-shadow: inset 0 -4px 0 rgba(32, 32, 29, 0.14);
+}
+
+.token-chess .cell-main {
+  font-size: 1.55rem;
+}
+
+.token-go {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.tile--go .cell-main {
+  font-size: 1.35rem;
+}
+
+.tile--go.go-black .cell-main {
+  color: #111111;
+}
+
+.tile--go.go-white .cell-main {
+  color: #f8f8f4;
+  text-shadow: 0 0 0 #111111, 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.tile--go.liberty .cell-main {
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+
+.token-logic .cell-main,
+.token-vector .cell-main,
+.token-target .cell-main,
+.token-ok .cell-main,
+.token-domino .cell-main {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.token-domino .cell-main {
+  padding: 3px 7px;
+  border: 1px solid rgba(32, 32, 29, 0.25);
+  border-radius: 5px;
+  background: #fffdfa;
+}
+
+.token-dice .cell-main {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgba(32, 32, 29, 0.32);
+  border-radius: 6px;
+  background: #fffdfa;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+}
+
+.token-animal .cell-main {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.token-direction .cell-main {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.token-divider .cell-main,
+.tile--divider .cell-main {
+  color: var(--accent);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
 }
 
 .tile--arrow {
@@ -382,14 +535,14 @@ h2 {
 }
 
 .tile--mark {
-  font-size: clamp(1rem, 6vw, 1.65rem);
+  font-size: 1.2rem;
 }
 
 .tile--path {
   background: #f8f5eb;
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: clamp(0.95rem, 5.2vw, 1.28rem);
+  font-size: 1.02rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -580,6 +733,131 @@ h2 {
   display: none !important;
 }
 
+.lab-page {
+  background: var(--outside);
+}
+
+.lab-shell {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.lab-header,
+.lab-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.lab-header {
+  margin-bottom: 16px;
+}
+
+.lab-link {
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.lab-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, max-content));
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.lab-controls label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lab-controls input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fffdfa;
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: 0;
+  padding: 8px 10px;
+  text-transform: none;
+}
+
+.lab-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.lab-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+}
+
+.lab-card h2 {
+  font-size: 1rem;
+}
+
+.lab-answer-button {
+  min-height: 38px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.lab-briefing {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.lab-grid {
+  max-width: 320px;
+}
+
+.lab-grid .cell {
+  min-height: 42px;
+}
+
+.lab-meta {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.32;
+}
+
+.lab-meta div {
+  min-width: 0;
+}
+
+.lab-meta dt {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.lab-meta dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
 @media (min-width: 760px) {
   body {
     display: grid;
@@ -603,5 +881,15 @@ h2 {
     min-height: 0;
     overflow-y: auto;
     padding: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .lab-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-list {
+    grid-template-columns: 1fr;
   }
 }

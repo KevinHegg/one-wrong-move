@@ -240,18 +240,31 @@
 
   function renderBriefing(round) {
     briefingDetails.hidden = false;
-    symbolText.textContent = round.symbolBank.join(" ");
+    renderSymbolChips(round.symbolBank || round.symbols || []);
     exampleCaption.textContent = round.exampleData.caption;
     exampleBoard.innerHTML = "";
     exampleBoard.style.gridTemplateColumns = "repeat(" + round.exampleData.columns + ", minmax(0, 1fr))";
 
-    round.exampleData.cells.forEach(function (label) {
-      var cell = document.createElement("span");
+    round.exampleData.cells.forEach(renderExampleCell);
+  }
 
-      cell.className = "example-cell";
-      cell.textContent = label;
-      exampleBoard.appendChild(cell);
+  function renderSymbolChips(symbols) {
+    symbolText.innerHTML = "";
+    symbols.forEach(function (symbol) {
+      var chip = document.createElement("span");
+
+      chip.className = "symbol-chip";
+      chip.textContent = typeof symbol === "string" ? symbol : symbol.glyph || symbol.label || "";
+      symbolText.appendChild(chip);
     });
+  }
+
+  function renderExampleCell(label) {
+    var cell = document.createElement("span");
+
+    cell.className = "example-cell";
+    cell.textContent = typeof label === "string" ? label : label.glyph || label.label || "";
+    exampleBoard.appendChild(cell);
   }
 
   function renderRound(round, markers) {
@@ -277,20 +290,52 @@
       cell.type = "button";
       cell.className = getCellClassName(cellData, index, options);
       cell.dataset.index = String(index);
-      cell.disabled = Boolean(options.disabled);
-      cell.textContent = cellData.label || "";
+      cell.disabled = Boolean(options.disabled || cellData.interactive === false);
+      renderCellContents(cell, cellData);
       cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column));
       cell.addEventListener("click", handleCellClick);
       grid.appendChild(cell);
     });
   }
 
+  function renderCellContents(cell, cellData) {
+    var main = document.createElement("span");
+
+    main.className = "cell-main";
+    main.textContent = cellData.glyph || cellData.label || "";
+    cell.appendChild(main);
+
+    if (cellData.cornerLabel) {
+      var corner = document.createElement("span");
+
+      corner.className = "cell-corner";
+      corner.textContent = cellData.cornerLabel;
+      cell.appendChild(corner);
+    }
+  }
+
   function getCellClassName(cellData, index, options) {
-    var classNames = ["cell", "tile--" + cellData.kind];
+    var kindParts = (cellData.kind || "token").split(/\s+/).filter(Boolean);
+    var kind = (kindParts[0] || "token").replace(/[^a-z0-9-]/gi, "").toLowerCase() || "token";
+    var classNames = ["cell", "tile--" + kind];
+
+    kindParts.slice(1).forEach(function (part) {
+      var safePart = part.replace(/[^a-z0-9-]/gi, "").toLowerCase();
+
+      if (safePart) {
+        classNames.push(safePart);
+      }
+    });
 
     if (cellData.zone) {
       classNames.push("zone--" + cellData.zone);
     }
+
+    (cellData.classNames || []).forEach(function (className) {
+      if (className) {
+        classNames.push(className);
+      }
+    });
 
     if (index === options.correctIndex) {
       classNames.push("is-correct");
@@ -308,14 +353,14 @@
   }
 
   function getCellAriaLabel(cellData, row, column) {
-    var visible = cellData.label ? cellData.name + " " + cellData.label : "empty square";
+    var visible = cellData.ariaLabel || cellData.label || cellData.glyph || "empty square";
 
     return "Row " + row + ", column " + column + ", " + visible;
   }
 
   function updateHeader(round) {
     roundText.textContent = "Round " + (state.roundIndex + 1) + " of " + TOTAL_ROUNDS;
-    roundName.textContent = round.title;
+    roundName.textContent = round.title + " · " + round.sourceWorld;
     ruleText.textContent = state.phase === "briefing" ? round.briefingText : round.rule;
     instructionText.textContent = state.phase === "briefing" ? "Study the mechanic. The board stays hidden and the timer is paused." : round.instruction;
     updateMistakes();
@@ -397,7 +442,7 @@
 
   function hideBriefingDetails() {
     briefingDetails.hidden = true;
-    symbolText.textContent = "";
+    symbolText.innerHTML = "";
     exampleBoard.innerHTML = "";
     exampleCaption.textContent = "";
   }
@@ -557,8 +602,14 @@
         roundNames: puzzle.rounds.map(function (round) {
           return round.name;
         }),
+        sourceWorlds: puzzle.rounds.map(function (round) {
+          return round.sourceWorld;
+        }),
         breakSignatures: puzzle.rounds.map(function (round) {
           return round.breakSignature;
+        }),
+        evidence: puzzle.rounds.map(function (round) {
+          return round.evidence;
         }),
         rounds: state.rounds.map(function (roundState) {
           return {

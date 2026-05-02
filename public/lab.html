@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>One Wrong Move Puzzle Lab</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css?v=007">
+    <script src="symbols.js?v=007" defer></script>
+    <script src="scoring.js?v=007" defer></script>
+    <script src="puzzles.js?v=007" defer></script>
+    <script src="lab.js?v=007" defer></script>
+  </head>
+  <body class="lab-page">
+    <main class="lab-shell" aria-label="One Wrong Move puzzle lab">
+      <header class="lab-header">
+        <div>
+          <p class="puzzle-number">Development lab</p>
+          <h1>One Wrong Move Lab</h1>
+        </div>
+        <a href="index.html" class="lab-link">Game</a>
+      </header>
+
+      <section class="lab-controls" aria-label="Lab controls">
+        <label>
+          <span>Date / seed</span>
+          <input id="labSeed" type="text" value="2026-05-02">
+        </label>
+        <label>
+          <span>Session attempt</span>
+          <input id="labAttempt" type="number" min="1" value="1">
+        </label>
+        <button id="labRegenerate" class="primary-button" type="button">Regenerate</button>
+      </section>
+
+      <section id="labList" class="lab-list" aria-live="polite"></section>
+    </main>
+  </body>
+</html>
