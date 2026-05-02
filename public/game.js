@@ -1,45 +1,25 @@
 (function () {
   "use strict";
 
-  var GRID_SIZE = 5;
-  var CELL_COUNT = GRID_SIZE * GRID_SIZE;
+  var Puzzles = window.OneWrongMovePuzzles;
   var TOTAL_ROUNDS = 3;
-  var LAUNCH_DATE = "2026-05-02";
-
-  var ROW_SYMBOLS = [
-    { label: "☾", name: "moon" },
-    { label: "◆", name: "diamond" },
-    { label: "♛", name: "crown" },
-    { label: "☇", name: "lightning" },
-    { label: "◉", name: "eye" }
-  ];
-  var ARROWS = [
-    { label: "↑", name: "up arrow" },
-    { label: "↗", name: "up-right arrow" },
-    { label: "→", name: "right arrow" },
-    { label: "↘", name: "down-right arrow" },
-    { label: "↓", name: "down arrow" },
-    { label: "↙", name: "down-left arrow" },
-    { label: "←", name: "left arrow" },
-    { label: "↖", name: "up-left arrow" }
-  ];
-  var MIRROR_PAIRS = [
-    { left: "☾", right: "☀", leftName: "moon", rightName: "sun" },
-    { left: "☠", right: "⚚", leftName: "skull", rightName: "bone mark" },
-    { left: "♛", right: "♔", leftName: "dark crown", rightName: "light crown" },
-    { left: "◆", right: "◇", leftName: "filled diamond", rightName: "open diamond" },
-    { left: "◉", right: "◎", leftName: "watchful eye", rightName: "open eye" }
-  ];
 
   var grid = document.getElementById("grid");
   var gameArea = document.getElementById("gameArea");
+  var boardPlaceholder = document.getElementById("boardPlaceholder");
+  var placeholderText = document.getElementById("placeholderText");
   var puzzleText = document.getElementById("puzzleText");
+  var variantText = document.getElementById("variantText");
   var timerText = document.getElementById("timerText");
   var roundText = document.getElementById("roundText");
   var mistakeText = document.getElementById("mistakeText");
   var roundName = document.getElementById("roundName");
   var ruleText = document.getElementById("ruleText");
   var instructionText = document.getElementById("instructionText");
+  var briefingDetails = document.getElementById("briefingDetails");
+  var symbolText = document.getElementById("symbolText");
+  var exampleBoard = document.getElementById("exampleBoard");
+  var exampleCaption = document.getElementById("exampleCaption");
   var feedbackPanel = document.getElementById("feedbackPanel");
   var feedbackTitle = document.getElementById("feedbackTitle");
   var feedbackText = document.getElementById("feedbackText");
@@ -51,29 +31,32 @@
   var sharePreview = document.getElementById("sharePreview");
   var startButton = document.getElementById("startButton");
   var shareButton = document.getElementById("shareButton");
+  var playMixButton = document.getElementById("playMixButton");
   var restartButton = document.getElementById("restartButton");
 
-  var todayKey = getLocalDateKey(new Date());
-  var puzzleNumber = getPuzzleNumber(todayKey);
-  var puzzle = createDailyPuzzle(todayKey);
-  var state = createFreshState();
+  var todayKey = Puzzles.getLocalDateKey(new Date());
+  var puzzleNumber = Puzzles.getPuzzleNumber(todayKey);
+  var attemptKey = "owm:" + todayKey + ":sessionAttempt";
+  var signatureKey = "owm:" + todayKey + ":breakSignatures";
+  var sessionAttempt = getStoredAttempt();
+  var usedBreakSignatures = getStoredSignatures();
+  var puzzle = createPuzzleForAttempt(sessionAttempt);
+  var signaturesRemembered = false;
   var timerId = null;
   var wrongFeedbackId = null;
-
-  if (!validatePuzzle(puzzle)) {
-    throw new Error("Generated daily puzzle is invalid.");
-  }
+  var state = createFreshState("intro");
 
   puzzleText.textContent = "Puzzle #" + padNumber(puzzleNumber, 3);
   startButton.addEventListener("click", handlePrimaryAction);
-  restartButton.addEventListener("click", startGame);
+  restartButton.addEventListener("click", startVariantMix);
+  playMixButton.addEventListener("click", startVariantMix);
   shareButton.addEventListener("click", shareResult);
 
-  renderIdle();
+  renderIntro();
 
-  function createFreshState() {
+  function createFreshState(phase) {
     return {
-      phase: "idle",
+      phase: phase,
       roundIndex: 0,
       totalMistakes: 0,
       activeElapsedMs: 0,
@@ -88,41 +71,102 @@
   }
 
   function handlePrimaryAction() {
-    if (state.phase === "idle" || state.phase === "complete") {
-      startGame();
+    if (state.phase === "intro") {
+      rememberCurrentBreakSignatures();
+      enterBriefing(0);
       return;
     }
 
-    if (state.phase === "correct") {
+    if (state.phase === "briefing") {
+      startActiveRound();
+      return;
+    }
+
+    if (state.phase === "feedback") {
       if (state.roundIndex + 1 >= TOTAL_ROUNDS) {
         completeGame();
       } else {
-        startRound(state.roundIndex + 1);
+        enterBriefing(state.roundIndex + 1);
       }
     }
   }
 
-  function startGame() {
+  function startVariantMix() {
+    pauseTimer();
     clearTimers();
-    state = createFreshState();
-    resultPanel.hidden = true;
-    shareButton.hidden = true;
-    sharePreview.value = "";
-    startRound(0);
+    sessionAttempt += 1;
+    window.sessionStorage.setItem(attemptKey, String(sessionAttempt));
+    usedBreakSignatures = getStoredSignatures();
+    puzzle = createPuzzleForAttempt(sessionAttempt);
+    signaturesRemembered = false;
+    state = createFreshState("intro");
+    renderIntro();
   }
 
-  function startRound(roundIndex) {
+  function createPuzzleForAttempt(attempt) {
+    var avoid = attempt > 1 ? usedBreakSignatures : [];
+
+    return Puzzles.generateDailyPuzzle(todayKey, attempt, avoid);
+  }
+
+  function rememberCurrentBreakSignatures() {
+    if (signaturesRemembered) {
+      return;
+    }
+
+    usedBreakSignatures = getStoredSignatures();
+    puzzle.rounds.forEach(function (round) {
+      if (usedBreakSignatures.indexOf(round.breakSignature) === -1) {
+        usedBreakSignatures.push(round.breakSignature);
+      }
+    });
+    window.sessionStorage.setItem(signatureKey, JSON.stringify(usedBreakSignatures));
+    signaturesRemembered = true;
+  }
+
+  function renderIntro() {
+    stopTimer();
+    state.phase = "intro";
+    state.roundIndex = 0;
+    resultPanel.hidden = true;
+    hideFeedback();
+    hideBriefingDetails();
+    hideBoard("The board stays hidden until you open a round briefing.");
+    updateVariantLabel();
+    roundText.textContent = "Ready";
+    mistakeText.textContent = "Mistakes " + state.totalMistakes;
+    timerText.textContent = formatSeconds(state.activeElapsedMs);
+    roundName.textContent = sessionAttempt > 1 ? "Replay variant ready" : "Daily puzzle ready";
+    ruleText.textContent = "One board. One rule. One wrong move.";
+    instructionText.textContent = "Start with a paused briefing. The timer only runs while you are actively solving.";
+    updateButtons();
+  }
+
+  function enterBriefing(roundIndex) {
     var round = puzzle.rounds[roundIndex];
 
-    state.phase = "active";
+    pauseTimer();
+    state.phase = "briefing";
     state.roundIndex = roundIndex;
-    state.activeStartedAt = performance.now();
     hideFeedback();
+    hideBoard("Round " + (roundIndex + 1) + " is hidden until you press Start Round.");
+    resultPanel.hidden = true;
     updateHeader(round);
+    renderBriefing(round);
     updateButtons();
-    updateGameAreaState("active");
+  }
+
+  function startActiveRound() {
+    var round = puzzle.rounds[state.roundIndex];
+
+    state.phase = "active";
+    hideFeedback();
+    hideBriefingDetails();
+    showBoard();
+    updateHeader(round);
     renderRound(round);
     startTimer();
+    updateButtons();
   }
 
   function handleCellClick(event) {
@@ -130,22 +174,20 @@
       return;
     }
 
-    var cell = event.currentTarget;
-    var index = Number(cell.dataset.index);
+    var index = Number(event.currentTarget.dataset.index);
     var round = puzzle.rounds[state.roundIndex];
     var roundState = state.rounds[state.roundIndex];
 
     if (index === round.answerIndex) {
-      pauseActiveTimer();
-      state.phase = "correct";
+      pauseTimer();
+      state.phase = "feedback";
       roundState.solved = true;
       showFeedback("Correct", round.explanation, "success");
-      updateButtons();
-      updateGameAreaState("correct");
       renderRound(round, {
         correctIndex: round.answerIndex,
-        relatedIndexes: round.relatedIndexes
+        relatedIndexes: round.relatedIndexes || []
       });
+      updateButtons();
       return;
     }
 
@@ -169,49 +211,39 @@
   function completeGame() {
     var elapsedMs = getElapsedMs();
     var score = calculateScore(elapsedMs, state.totalMistakes);
-    var round = puzzle.rounds[state.roundIndex];
 
-    pauseActiveTimer();
+    pauseTimer();
     stopTimer();
     state.phase = "complete";
-    updateGameAreaState("complete");
-    updateHeaderForComplete();
-    updateButtons();
-    renderRound(round, {
-      correctIndex: round.answerIndex,
-      relatedIndexes: round.relatedIndexes
-    });
-
+    hideBoard("");
+    hideBriefingDetails();
+    hideFeedback();
+    roundText.textContent = "Complete";
+    roundName.textContent = "Daily puzzle solved";
+    ruleText.textContent = "Solved 3 of 3";
+    instructionText.textContent = "Share your result, play another mix, or restart into a new variant.";
     solvedText.textContent = "3 of 3";
     finalTimeText.textContent = formatSeconds(elapsedMs);
     finalMistakeText.textContent = String(state.totalMistakes);
     scoreText.textContent = String(score);
-    sharePreview.value = buildShareText(elapsedMs);
+    sharePreview.value = buildShareText(elapsedMs, score);
     resultPanel.hidden = false;
-  }
-
-  function renderIdle() {
-    updateGameAreaState("idle");
-    roundText.textContent = "Ready";
-    mistakeText.textContent = "Mistakes 0";
-    roundName.textContent = "Logic-first daily puzzle";
-    ruleText.textContent = "Infer the rule. Tap the symbol that breaks it.";
-    instructionText.textContent = "Three boards, each with its own visual rule system. No memory tricks, no plain spot-the-difference.";
-    timerText.textContent = "0.0s";
-    hideFeedback();
     updateButtons();
-    renderCells(makeIdleCells(), { disabled: true });
   }
 
-  function makeIdleCells() {
-    var cycle = ["☾", "◆", "♛", "☇", "◉"];
+  function renderBriefing(round) {
+    briefingDetails.hidden = false;
+    symbolText.textContent = round.symbolBank.join(" ");
+    exampleCaption.textContent = round.exampleData.caption;
+    exampleBoard.innerHTML = "";
+    exampleBoard.style.gridTemplateColumns = "repeat(" + round.exampleData.columns + ", minmax(0, 1fr))";
 
-    return makeArray(null).map(function (_, index) {
-      var row = Math.floor(index / GRID_SIZE);
-      var column = index % GRID_SIZE;
-      var label = cycle[(row + column) % cycle.length];
+    round.exampleData.cells.forEach(function (label) {
+      var cell = document.createElement("span");
 
-      return createTokenCell(label, getSymbolName(label), "logic");
+      cell.className = "example-cell";
+      cell.textContent = label;
+      exampleBoard.appendChild(cell);
     });
   }
 
@@ -221,21 +253,19 @@
       disabled: state.phase !== "active",
       correctIndex: markers.correctIndex,
       wrongIndex: markers.wrongIndex,
-      relatedIndexes: markers.relatedIndexes || [],
-      round: round
+      relatedIndexes: markers.relatedIndexes || []
     });
   }
 
   function renderCells(cells, options) {
-    options = options || {};
     options.relatedIndexes = options.relatedIndexes || [];
     grid.innerHTML = "";
     grid.setAttribute("aria-disabled", options.disabled ? "true" : "false");
 
     cells.forEach(function (cellData, index) {
       var cell = document.createElement("button");
-      var row = Math.floor(index / GRID_SIZE) + 1;
-      var column = (index % GRID_SIZE) + 1;
+      var row = Math.floor(index / Puzzles.GRID_SIZE) + 1;
+      var column = (index % Puzzles.GRID_SIZE) + 1;
 
       cell.type = "button";
       cell.className = getCellClassName(cellData, index, options);
@@ -271,43 +301,44 @@
   }
 
   function getCellAriaLabel(cellData, row, column) {
-    var location = "Row " + row + ", column " + column;
+    var visible = cellData.label ? cellData.name + " " + cellData.label : "empty square";
 
-    if (cellData.kind === "spine") {
-      return location + ", mirror divider";
-    }
-
-    return location + ", " + cellData.name + " symbol";
+    return "Row " + row + ", column " + column + ", " + visible;
   }
 
   function updateHeader(round) {
     roundText.textContent = "Round " + (state.roundIndex + 1) + " of " + TOTAL_ROUNDS;
     roundName.textContent = round.title;
-    ruleText.textContent = round.rule;
-    instructionText.textContent = round.instruction;
+    ruleText.textContent = state.phase === "briefing" ? round.briefingText : round.rule;
+    instructionText.textContent = state.phase === "briefing" ? "Study the mechanic. The board stays hidden and the timer is paused." : round.instruction;
     updateMistakes();
-  }
-
-  function updateHeaderForComplete() {
-    roundText.textContent = "Complete";
-    roundName.textContent = "Daily puzzle solved";
-    ruleText.textContent = "Solved 3 of 3";
-    instructionText.textContent = "Share your result or restart today's puzzle.";
-    updateMistakes();
+    updateVariantLabel();
   }
 
   function updateMistakes() {
     mistakeText.textContent = "Mistakes " + state.totalMistakes;
   }
 
+  function updateVariantLabel() {
+    variantText.textContent = sessionAttempt > 1 ? "Variant " + sessionAttempt : "Daily Puzzle";
+  }
+
   function updateButtons() {
     startButton.hidden = true;
     shareButton.hidden = true;
+    playMixButton.hidden = true;
     restartButton.hidden = true;
 
-    if (state.phase === "idle") {
+    if (state.phase === "intro") {
       startButton.hidden = false;
-      startButton.textContent = "Start";
+      startButton.textContent = sessionAttempt > 1 ? "Start Variant" : "Start";
+      return;
+    }
+
+    if (state.phase === "briefing") {
+      startButton.hidden = false;
+      startButton.textContent = "Start Round";
+      restartButton.hidden = false;
       return;
     }
 
@@ -316,21 +347,31 @@
       return;
     }
 
-    if (state.phase === "correct") {
+    if (state.phase === "feedback") {
       startButton.hidden = false;
-      startButton.textContent = state.roundIndex + 1 >= TOTAL_ROUNDS ? "See results" : "Next Round";
+      startButton.textContent = state.roundIndex + 1 >= TOTAL_ROUNDS ? "See Results" : "Next Round";
       restartButton.hidden = false;
       return;
     }
 
     if (state.phase === "complete") {
       shareButton.hidden = false;
+      playMixButton.hidden = false;
       restartButton.hidden = false;
     }
   }
 
-  function updateGameAreaState(phase) {
-    gameArea.className = "board-card is-" + phase;
+  function showBoard() {
+    boardPlaceholder.hidden = true;
+    gameArea.hidden = false;
+    gameArea.className = "board-card is-active";
+  }
+
+  function hideBoard(message) {
+    gameArea.hidden = true;
+    grid.innerHTML = "";
+    boardPlaceholder.hidden = !message;
+    placeholderText.textContent = message || "";
   }
 
   function showFeedback(title, text, tone) {
@@ -347,19 +388,32 @@
     feedbackText.textContent = "";
   }
 
+  function hideBriefingDetails() {
+    briefingDetails.hidden = true;
+    symbolText.textContent = "";
+    exampleBoard.innerHTML = "";
+    exampleCaption.textContent = "";
+  }
+
   function startTimer() {
+    if (!state.activeStartedAt) {
+      state.activeStartedAt = performance.now();
+    }
+
     if (!timerId) {
       timerId = window.setInterval(updateTimer, 100);
     }
     updateTimer();
   }
 
-  function pauseActiveTimer() {
+  function pauseTimer() {
     if (state.activeStartedAt) {
       state.activeElapsedMs += performance.now() - state.activeStartedAt;
       state.activeStartedAt = 0;
       updateTimer();
     }
+
+    stopTimer();
   }
 
   function getElapsedMs() {
@@ -394,13 +448,11 @@
   }
 
   function calculateScore(milliseconds, mistakes) {
-    var seconds = milliseconds / 1000;
-
-    return Math.max(0, 1000 - Math.floor(seconds * 10) - mistakes * 50);
+    return Math.max(0, 1000 - Math.floor((milliseconds / 1000) * 10) - mistakes * 50);
   }
 
   function shareResult() {
-    var text = buildShareText(getElapsedMs());
+    var text = sharePreview.value || buildShareText(getElapsedMs(), calculateScore(getElapsedMs(), state.totalMistakes));
 
     sharePreview.value = text;
 
@@ -431,318 +483,45 @@
     }, 1200);
   }
 
-  function buildShareText(elapsedMs) {
-    return [
+  function buildShareText(elapsedMs, score) {
+    var lines = [
       "One Wrong Move #" + padNumber(puzzleNumber, 3),
       "✅✅✅",
       formatSeconds(elapsedMs),
       "Mistakes: " + state.totalMistakes,
-      "",
-      "Round 1: Rule Rows",
-      "Round 2: Rotation Logic",
-      "Round 3: Mirror Trap"
-    ].join("\n");
-  }
-
-  function createDailyPuzzle(dateKey) {
-    var random = mulberry32(hashString(dateKey));
-    var rounds = [
-      createRuleRowsRound(random),
-      createRotationLogicRound(random),
-      createMirrorTrapRound(random)
+      "Score: " + score
     ];
 
-    return {
-      dateKey: dateKey,
-      rounds: rounds
-    };
-  }
-
-  function createRuleRowsRound(random) {
-    var offset = randomIndex(random, ROW_SYMBOLS.length);
-    var expected = [];
-    var cells = [];
-    var answerIndex = chooseInteriorIndex(random);
-    var answerExpected = null;
-    var replacement = null;
-
-    for (var row = 0; row < GRID_SIZE; row += 1) {
-      for (var column = 0; column < GRID_SIZE; column += 1) {
-        var symbol = ROW_SYMBOLS[(offset + row + column) % ROW_SYMBOLS.length];
-        expected.push(symbol.label);
-        cells.push(createTokenCell(symbol.label, symbol.name, "logic"));
-      }
+    if (sessionAttempt > 1) {
+      lines.push("Variant " + sessionAttempt);
     }
 
-    answerExpected = expected[answerIndex];
-    replacement = chooseDifferentSymbol(random, ROW_SYMBOLS, answerExpected);
-    cells[answerIndex] = createTokenCell(replacement.label, replacement.name, "logic");
+    lines.push("");
+    puzzle.rounds.forEach(function (round, index) {
+      lines.push("Round " + (index + 1) + ": " + round.name);
+    });
 
-    return {
-      id: "rule-rows",
-      title: "Round 1: Rule Rows",
-      rule: "Each row uses the same five-symbol recipe, shifted one place. One glyph breaks the row grammar.",
-      instruction: "Compare rows as sequences, not as pictures. Tap the symbol that does not belong in its row.",
-      hint: "The row should be a shifted version of the others. Look for the broken recipe, not the rarest symbol.",
-      explanation: "That glyph breaks the shifted row sequence.",
-      answerIndex: answerIndex,
-      expected: expected,
-      cells: cells
-    };
+    return lines.join("\n");
   }
 
-  function createRotationLogicRound(random) {
-    var offset = randomIndex(random, ARROWS.length);
-    var expected = [];
-    var cells = [];
-    var answerIndex = chooseInteriorIndex(random);
-    var expectedLabel = null;
-    var replacement = null;
+  function getStoredAttempt() {
+    var stored = Number(window.sessionStorage.getItem(attemptKey));
 
-    for (var row = 0; row < GRID_SIZE; row += 1) {
-      for (var column = 0; column < GRID_SIZE; column += 1) {
-        var arrow = ARROWS[(offset + row + column * 2) % ARROWS.length];
-        expected.push(arrow.label);
-        cells.push(createTokenCell(arrow.label, arrow.name, "arrow"));
-      }
+    return stored > 0 ? stored : 1;
+  }
+
+  function getStoredSignatures() {
+    try {
+      var stored = JSON.parse(window.sessionStorage.getItem(signatureKey) || "[]");
+
+      return Array.isArray(stored) ? stored : [];
+    } catch (error) {
+      return [];
     }
-
-    expectedLabel = expected[answerIndex];
-    replacement = chooseDifferentSymbol(random, ARROWS, expectedLabel);
-    cells[answerIndex] = createTokenCell(replacement.label, replacement.name, "arrow");
-
-    return {
-      id: "rotation-logic",
-      title: "Round 2: Rotation Logic",
-      rule: "Across each row, arrows rotate a quarter-turn clockwise. Each new row starts one tick later.",
-      instruction: "Read the grid like a mechanical pattern. Tap the arrow that missed its turn.",
-      hint: "Move left to right: each arrow should turn 90 degrees clockwise. Rows also drift one arrow forward.",
-      explanation: "That arrow breaks the rotation sequence.",
-      answerIndex: answerIndex,
-      expected: expected,
-      cells: cells
-    };
-  }
-
-  function createMirrorTrapRound(random) {
-    var cells = makeArray(null);
-    var expected = makeArray(null);
-    var leftSequence = shuffleMirrorSource(random);
-    var answerChoices = [];
-    var answerIndex = null;
-    var wrongPair = null;
-
-    for (var row = 0; row < GRID_SIZE; row += 1) {
-      cells[positionToIndex(row, 2)] = {
-        kind: "spine",
-        label: "↔",
-        name: "mirror divider",
-        expectedLabel: "↔",
-        zone: "spine"
-      };
-      expected[positionToIndex(row, 2)] = "↔";
-
-      for (var leftColumn = 0; leftColumn < 2; leftColumn += 1) {
-        var sourcePair = leftSequence[row * 2 + leftColumn];
-        var leftIndex = positionToIndex(row, leftColumn);
-        var rightIndex = positionToIndex(row, GRID_SIZE - 1 - leftColumn);
-
-        cells[leftIndex] = createTokenCell(sourcePair.left, sourcePair.leftName, "mirror-left");
-        cells[leftIndex].zone = "source";
-        cells[rightIndex] = createTokenCell(sourcePair.right, sourcePair.rightName, "mirror-right");
-        cells[rightIndex].zone = "copy";
-        expected[leftIndex] = sourcePair.left;
-        expected[rightIndex] = sourcePair.right;
-        answerChoices.push({ index: rightIndex, pair: sourcePair });
-      }
-    }
-
-    answerChoices = answerChoices.filter(function (choice) {
-      return countLeftOccurrences(leftSequence, choice.pair.left) > 1;
-    });
-    wrongPair = answerChoices[randomIndex(random, answerChoices.length)];
-    answerIndex = wrongPair.index;
-    cells[answerIndex] = createTokenCell(chooseWrongMirrorLabel(random, wrongPair.pair.right), "wrong partner", "mirror-right");
-    cells[answerIndex].zone = "copy";
-
-    return {
-      id: "mirror-trap",
-      title: "Round 3: Mirror Trap",
-      rule: "The right half mirrors the left, but every symbol changes into its paired counterpart.",
-      instruction: "Infer the symbol pairs from repeats, then tap the right-side symbol with the wrong partner.",
-      hint: "Only the mirrored side can be wrong. Find a source symbol whose partner is used consistently elsewhere.",
-      explanation: "That mirrored symbol uses the wrong counterpart.",
-      answerIndex: answerIndex,
-      relatedIndexes: [findSourceIndexForMirror(answerIndex)],
-      expected: expected,
-      cells: cells
-    };
-  }
-
-  function createTokenCell(label, name, kind) {
-    return {
-      kind: kind,
-      label: label,
-      name: name,
-      expectedLabel: label
-    };
-  }
-
-  function chooseInteriorIndex(random) {
-    var candidates = [];
-
-    for (var row = 1; row < GRID_SIZE - 1; row += 1) {
-      for (var column = 1; column < GRID_SIZE - 1; column += 1) {
-        candidates.push(positionToIndex(row, column));
-      }
-    }
-
-    return candidates[randomIndex(random, candidates.length)];
-  }
-
-  function chooseDifferentSymbol(random, symbols, expectedLabel) {
-    var choices = symbols.filter(function (symbol) {
-      return symbol.label !== expectedLabel;
-    });
-
-    return choices[randomIndex(random, choices.length)];
-  }
-
-  function shuffleMirrorSource(random) {
-    var source = MIRROR_PAIRS.concat(MIRROR_PAIRS);
-
-    for (var index = source.length - 1; index > 0; index -= 1) {
-      var swapIndex = randomIndex(random, index + 1);
-      var temp = source[index];
-      source[index] = source[swapIndex];
-      source[swapIndex] = temp;
-    }
-
-    return source;
-  }
-
-  function countLeftOccurrences(sequence, leftLabel) {
-    return sequence.filter(function (pair) {
-      return pair.left === leftLabel;
-    }).length;
-  }
-
-  function chooseWrongMirrorLabel(random, expectedLabel) {
-    var choices = MIRROR_PAIRS.map(function (pair) {
-      return pair.right;
-    }).filter(function (label) {
-      return label !== expectedLabel;
-    });
-
-    return choices[randomIndex(random, choices.length)];
-  }
-
-  function findSourceIndexForMirror(index) {
-    var row = Math.floor(index / GRID_SIZE);
-    var column = index % GRID_SIZE;
-
-    return positionToIndex(row, GRID_SIZE - 1 - column);
-  }
-
-  function validatePuzzle(dailyPuzzle) {
-    return validateExpectedMismatch(dailyPuzzle.rounds[0]) &&
-      validateExpectedMismatch(dailyPuzzle.rounds[1]) &&
-      validateMirrorTrap(dailyPuzzle.rounds[2]);
-  }
-
-  function validateExpectedMismatch(round) {
-    var mismatches = getMismatches(round);
-
-    return mismatches.length === 1 && mismatches[0] === round.answerIndex;
-  }
-
-  function validateMirrorTrap(round) {
-    var mismatches = getMismatches(round);
-
-    return mismatches.length === 1 &&
-      mismatches[0] === round.answerIndex &&
-      round.answerIndex % GRID_SIZE > 2;
-  }
-
-  function getMismatches(round) {
-    var mismatches = [];
-
-    round.cells.forEach(function (cell, index) {
-      if (cell.label !== round.expected[index]) {
-        mismatches.push(index);
-      }
-    });
-
-    return mismatches;
-  }
-
-  function makeArray(value) {
-    return Array.from({ length: CELL_COUNT }, function () {
-      return value;
-    });
-  }
-
-  function getSymbolName(label) {
-    var allSymbols = ROW_SYMBOLS.concat(ARROWS);
-    var match = allSymbols.filter(function (symbol) {
-      return symbol.label === label;
-    })[0];
-
-    return match ? match.name : "symbol";
-  }
-
-  function positionToIndex(row, column) {
-    return row * GRID_SIZE + column;
-  }
-
-  function getLocalDateKey(date) {
-    var year = date.getFullYear();
-    var month = padNumber(date.getMonth() + 1, 2);
-    var day = padNumber(date.getDate(), 2);
-
-    return year + "-" + month + "-" + day;
-  }
-
-  function getPuzzleNumber(dateKey) {
-    var start = dateKeyToUtc(LAUNCH_DATE);
-    var current = dateKeyToUtc(dateKey);
-    var dayMs = 24 * 60 * 60 * 1000;
-
-    return Math.max(1, Math.floor((current - start) / dayMs) + 1);
-  }
-
-  function dateKeyToUtc(dateKey) {
-    var parts = dateKey.split("-").map(Number);
-
-    return Date.UTC(parts[0], parts[1] - 1, parts[2]);
   }
 
   function padNumber(number, length) {
     return String(number).padStart(length, "0");
-  }
-
-  function randomIndex(random, length) {
-    return Math.floor(random() * length);
-  }
-
-  function hashString(value) {
-    var hash = 2166136261;
-
-    for (var index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-
-    return hash >>> 0;
-  }
-
-  function mulberry32(seed) {
-    return function () {
-      var t = seed += 0x6D2B79F5;
-      t = Math.imul(t ^ t >>> 15, t | 1);
-      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
   }
 
   window.OneWrongMove = {
@@ -750,18 +529,24 @@
       return {
         dateKey: todayKey,
         puzzleNumber: puzzleNumber,
+        sessionAttempt: sessionAttempt,
         phase: state.phase,
         roundIndex: state.roundIndex,
         answerIndex: puzzle.rounds[state.roundIndex] ? puzzle.rounds[state.roundIndex].answerIndex : null,
+        breakSignature: puzzle.rounds[state.roundIndex] ? puzzle.rounds[state.roundIndex].breakSignature : null,
         totalMistakes: state.totalMistakes,
         elapsedMs: getElapsedMs(),
-        validation: {
-          ruleRows: validateExpectedMismatch(puzzle.rounds[0]),
-          rotationLogic: validateExpectedMismatch(puzzle.rounds[1]),
-          mirrorTrap: validateMirrorTrap(puzzle.rounds[2])
-        },
+        timerRunning: Boolean(timerId),
+        boardVisible: !gameArea.hidden,
+        validation: Puzzles.validatePuzzle(puzzle),
         roundIds: puzzle.rounds.map(function (round) {
           return round.id;
+        }),
+        roundNames: puzzle.rounds.map(function (round) {
+          return round.name;
+        }),
+        breakSignatures: puzzle.rounds.map(function (round) {
+          return round.breakSignature;
         }),
         rounds: state.rounds.map(function (roundState) {
           return {
@@ -770,7 +555,6 @@
           };
         })
       };
-    },
-    start: startGame
+    }
   };
 }());
