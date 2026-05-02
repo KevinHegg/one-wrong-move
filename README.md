@@ -115,6 +115,16 @@ node scripts/validate-pattern-systems.js
 
 The same settings are captured in `netlify.toml`.
 
+## GitHub Pages
+
+GitHub Pages serves this repo from the repository root at:
+
+```text
+https://kevinhegg.github.io/one-wrong-move/
+```
+
+The root `index.html` loads the same app files from `public/` so the game can be tested there while Netlify still publishes `public`.
+
 ## Current Limitations
 
 - The daily puzzle uses the browser's local date.

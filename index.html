@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>One Wrong Move</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="public/style.css?v=007">
+    <script src="public/symbols.js?v=007" defer></script>
+    <script src="public/puzzles.js?v=007" defer></script>
+    <script src="public/scoring.js?v=007" defer></script>
+    <script src="public/game.js?v=007" defer></script>
+  </head>
+  <body>
+    <main class="phone-shell" aria-label="One Wrong Move">
+      <section class="app-screen">
+        <header class="app-header">
+          <div>
+            <p id="puzzleText" class="puzzle-number">Puzzle #---</p>
+            <h1>One Wrong Move</h1>
+          </div>
+          <div class="timer-box" aria-live="polite">
+            <span>Time</span>
+            <strong id="timerText">0.0s</strong>
+          </div>
+        </header>
+
+        <div class="status-bar">
+          <span id="roundText">Ready</span>
+          <span id="variantText">Daily Puzzle</span>
+          <span id="mistakeText">Mistakes 0</span>
+        </div>
+
+        <section class="rule-card" aria-labelledby="roundName">
+          <p id="roundName" class="round-name">One board. One rule. One wrong move.</p>
+          <h2 id="ruleText">Find the one move that breaks the rule.</h2>
+          <p id="instructionText">Start today's puzzle and solve each board from the rule in front of you.</p>
+          <div id="briefingDetails" class="briefing-details" hidden>
+            <div>
+              <strong>Symbols:</strong>
+              <div id="symbolText" class="symbol-chips" aria-label="Symbols you will see"></div>
+            </div>
+            <div>
+              <span class="example-label">Example</span>
+              <div id="exampleBoard" class="example-board" aria-label="Round example"></div>
+              <p id="exampleCaption" class="example-caption"></p>
+            </div>
+          </div>
+        </section>
+
+        <section id="feedbackPanel" class="feedback-panel" aria-live="polite" hidden>
+          <strong id="feedbackTitle"></strong>
+          <p id="feedbackText"></p>
+        </section>
+
+        <section id="boardPlaceholder" class="board-placeholder" aria-label="Hidden puzzle board">
+          <p id="placeholderText">The board stays hidden until the round starts.</p>
+        </section>
+
+        <section id="gameArea" class="board-card is-idle" aria-label="Puzzle board" hidden>
+          <div id="grid" class="grid" aria-disabled="true"></div>
+        </section>
+
+        <section id="resultPanel" class="result-panel" aria-label="Completed game summary" hidden>
+          <div class="result-grid">
+            <div>
+              <span>Solved</span>
+              <strong id="solvedText">3 of 3</strong>
+            </div>
+            <div>
+              <span>Active time</span>
+              <strong id="finalTimeText">0.0s</strong>
+            </div>
+            <div>
+              <span>Base time</span>
+              <strong id="baseScoreText">0s</strong>
+            </div>
+            <div>
+              <span>Final score</span>
+              <strong id="scoreText">0s</strong>
+            </div>
+          </div>
+          <div class="score-breakdown" aria-label="Score breakdown">
+            <p id="scoreHintText">Lower is better</p>
+            <div class="score-row">
+              <span>Mistakes</span>
+              <strong id="finalMistakeText">0</strong>
+            </div>
+            <div class="score-row">
+              <span>Penalty</span>
+              <strong id="penaltyText">0 × 10s = +0s</strong>
+            </div>
+            <div class="score-row">
+              <span>Formula</span>
+              <strong id="scoreFormulaText">0s + 0s = 0s</strong>
+            </div>
+          </div>
+          <label class="share-label" for="sharePreview">Share text</label>
+          <textarea id="sharePreview" class="share-preview" readonly></textarea>
+        </section>
+
+        <footer class="controls" aria-label="Game controls">
+          <button id="startButton" class="primary-button" type="button">Start</button>
+          <button id="shareButton" class="primary-button" type="button" hidden>Share result</button>
+          <button id="playMixButton" class="primary-button" type="button" hidden>Play another mix</button>
+          <button id="restartButton" class="secondary-button" type="button" hidden>Restart</button>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>
