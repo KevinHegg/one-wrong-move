@@ -7,6 +7,7 @@
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
     <script src="puzzles.js" defer></script>
+    <script src="scoring.js" defer></script>
     <script src="game.js" defer></script>
   </head>
   <body>
@@ -63,16 +64,31 @@
               <strong id="solvedText">3 of 3</strong>
             </div>
             <div>
-              <span>Time</span>
+              <span>Active time</span>
               <strong id="finalTimeText">0.0s</strong>
             </div>
             <div>
+              <span>Base time</span>
+              <strong id="baseScoreText">0s</strong>
+            </div>
+            <div>
+              <span>Final score</span>
+              <strong id="scoreText">0s</strong>
+            </div>
+          </div>
+          <div class="score-breakdown" aria-label="Score breakdown">
+            <p id="scoreHintText">Lower is better</p>
+            <div class="score-row">
               <span>Mistakes</span>
               <strong id="finalMistakeText">0</strong>
             </div>
-            <div>
-              <span>Score</span>
-              <strong id="scoreText">1000</strong>
+            <div class="score-row">
+              <span>Penalty</span>
+              <strong id="penaltyText">0 × 10s = +0s</strong>
+            </div>
+            <div class="score-row">
+              <span>Formula</span>
+              <strong id="scoreFormulaText">0s + 0s = 0s</strong>
             </div>
           </div>
           <label class="share-label" for="sharePreview">Share text</label>

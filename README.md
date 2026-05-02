@@ -14,7 +14,21 @@ Each daily puzzle has three rounds. Before every round, the game pauses on a bri
 
 The player presses **Start Round** to reveal the board. The timer runs only while the player is actively solving. It pauses during the intro, round briefings, correct-answer feedback, transitions, and completion screen. Wrong taps add mistakes but keep the timer running.
 
-After a correct tap, the game highlights the answer, explains the rule violation, and waits for **Next Round**. After round 3, the final screen shows solved rounds, active solving time, mistakes, score, and share controls.
+After a correct tap, the game highlights the answer, explains the rule violation, and waits for **Next Round**. After round 3, the final screen shows solved rounds, active solving time, mistakes, a lower-is-better time score, and share controls.
+
+## Scoring
+
+One Wrong Move uses a lower-is-better time score. The timer measures active solving time only, then the final score adds a small time penalty for mistakes:
+
+```text
+baseSeconds = Math.ceil(totalActiveMs / 1000)
+mistakePenaltySeconds = mistakes * 10
+scoreSeconds = baseSeconds + mistakePenaltySeconds
+```
+
+Example: solving in 18.2 active seconds with 2 mistakes gives a base score of 19 seconds, a 20-second mistake penalty, and a final score of 39 seconds.
+
+Mistakes add time because they should matter without turning the game into an abstract ranking. The current penalty is 10 seconds per mistake: large enough to make careful solving worthwhile, but small enough that a quick recovery still feels fair.
 
 ## Puzzle Pool
 
@@ -52,6 +66,7 @@ To validate generated puzzles:
 
 ```sh
 node scripts/validate-puzzles.js
+node scripts/validate-scoring.js
 ```
 
 ## Netlify Deploy Settings

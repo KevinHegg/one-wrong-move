@@ -32,11 +32,21 @@ The board is hidden during intro and briefing. It appears only after **Start Rou
 
 The timer measures active solving time only. It does not run during the intro, round briefings, correct-answer feedback, round transitions, or the completion screen. Wrong taps keep the timer running because they are part of the solving attempt.
 
-The score remains simple:
+The score is a lower-is-better time score:
 
 ```text
-score = max(0, 1000 - floor(seconds * 10) - mistakes * 50)
+baseSeconds = Math.ceil(totalActiveMs / 1000)
+mistakePenaltySeconds = mistakes * 10
+scoreSeconds = baseSeconds + mistakePenaltySeconds
 ```
+
+For example, 18.2 active seconds and 2 mistakes becomes:
+
+- Base time: 19s
+- Mistake penalty: 2 × 10s = +20s
+- Final score: 39s
+
+Mistakes add time because the game should reward clean solving without using an abstract ranking. The 10-second penalty is intentionally blunt and legible: one mistake is costly, but a fast solve can still recover.
 
 ## Puzzle-Type Pool
 

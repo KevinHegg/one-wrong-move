@@ -2,6 +2,7 @@
   "use strict";
 
   var Puzzles = window.OneWrongMovePuzzles;
+  var Scoring = window.OneWrongMoveScoring;
   var TOTAL_ROUNDS = 3;
 
   var grid = document.getElementById("grid");
@@ -26,7 +27,10 @@
   var resultPanel = document.getElementById("resultPanel");
   var solvedText = document.getElementById("solvedText");
   var finalTimeText = document.getElementById("finalTimeText");
+  var baseScoreText = document.getElementById("baseScoreText");
   var finalMistakeText = document.getElementById("finalMistakeText");
+  var penaltyText = document.getElementById("penaltyText");
+  var scoreFormulaText = document.getElementById("scoreFormulaText");
   var scoreText = document.getElementById("scoreText");
   var sharePreview = document.getElementById("sharePreview");
   var startButton = document.getElementById("startButton");
@@ -138,7 +142,7 @@
     timerText.textContent = formatSeconds(state.activeElapsedMs);
     roundName.textContent = sessionAttempt > 1 ? "Replay variant ready" : "Daily puzzle ready";
     ruleText.textContent = "One board. One rule. One wrong move.";
-    instructionText.textContent = "Start with a paused briefing. The timer only runs while you are actively solving.";
+    instructionText.textContent = "Score = rounded-up solving time + 10s per mistake. Lower is better.";
     updateButtons();
   }
 
@@ -210,7 +214,7 @@
 
   function completeGame() {
     var elapsedMs = getElapsedMs();
-    var score = calculateScore(elapsedMs, state.totalMistakes);
+    var score = Scoring.calculateScore(elapsedMs, state.totalMistakes);
 
     pauseTimer();
     stopTimer();
@@ -221,12 +225,15 @@
     roundText.textContent = "Complete";
     roundName.textContent = "Daily puzzle solved";
     ruleText.textContent = "Solved 3 of 3";
-    instructionText.textContent = "Share your result, play another mix, or restart into a new variant.";
+    instructionText.textContent = "Score = rounded-up solving time + 10s per mistake. Lower is better.";
     solvedText.textContent = "3 of 3";
     finalTimeText.textContent = formatSeconds(elapsedMs);
+    baseScoreText.textContent = formatWholeSeconds(score.baseSeconds);
     finalMistakeText.textContent = String(state.totalMistakes);
-    scoreText.textContent = String(score);
-    sharePreview.value = buildShareText(elapsedMs, score);
+    penaltyText.textContent = state.totalMistakes + " × " + score.penaltySecondsPerMistake + "s = +" + formatWholeSeconds(score.mistakePenaltySeconds);
+    scoreFormulaText.textContent = formatWholeSeconds(score.baseSeconds) + " + " + formatWholeSeconds(score.mistakePenaltySeconds) + " = " + formatWholeSeconds(score.scoreSeconds);
+    scoreText.textContent = formatWholeSeconds(score.scoreSeconds);
+    sharePreview.value = buildShareText(score);
     resultPanel.hidden = false;
     updateButtons();
   }
@@ -447,12 +454,12 @@
     return (milliseconds / 1000).toFixed(1) + "s";
   }
 
-  function calculateScore(milliseconds, mistakes) {
-    return Math.max(0, 1000 - Math.floor((milliseconds / 1000) * 10) - mistakes * 50);
+  function formatWholeSeconds(seconds) {
+    return seconds + "s";
   }
 
   function shareResult() {
-    var text = sharePreview.value || buildShareText(getElapsedMs(), calculateScore(getElapsedMs(), state.totalMistakes));
+    var text = sharePreview.value || buildShareText(Scoring.calculateScore(getElapsedMs(), state.totalMistakes));
 
     sharePreview.value = text;
 
@@ -483,18 +490,22 @@
     }, 1200);
   }
 
-  function buildShareText(elapsedMs, score) {
+  function buildShareText(score) {
     var lines = [
       "One Wrong Move #" + padNumber(puzzleNumber, 3),
-      "✅✅✅",
-      formatSeconds(elapsedMs),
-      "Mistakes: " + state.totalMistakes,
-      "Score: " + score
+      "Score: " + formatWholeSeconds(score.scoreSeconds),
+      "Lower is better"
     ];
 
     if (sessionAttempt > 1) {
       lines.push("Variant " + sessionAttempt);
     }
+
+    lines.push(
+      "Base: " + formatWholeSeconds(score.baseSeconds),
+      "Mistakes: " + state.totalMistakes + " × " + score.penaltySecondsPerMistake + "s = +" + formatWholeSeconds(score.mistakePenaltySeconds),
+      "✅✅✅"
+    );
 
     lines.push("");
     puzzle.rounds.forEach(function (round, index) {
@@ -536,6 +547,7 @@
         breakSignature: puzzle.rounds[state.roundIndex] ? puzzle.rounds[state.roundIndex].breakSignature : null,
         totalMistakes: state.totalMistakes,
         elapsedMs: getElapsedMs(),
+        score: Scoring.calculateScore(getElapsedMs(), state.totalMistakes),
         timerRunning: Boolean(timerId),
         boardVisible: !gameArea.hidden,
         validation: Puzzles.validatePuzzle(puzzle),
