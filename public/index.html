@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>One Wrong Move</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="game.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <p class="kicker">Daily pattern puzzle</p>
+      <h1>One Wrong Move</h1>
+    </header>
+
+    <main class="game-shell">
+      <section class="game-panel" aria-labelledby="game-title">
+        <div class="game-topline">
+          <div>
+            <h2 id="game-title">Find the single changed cell.</h2>
+            <p id="puzzleText" class="puzzle-text">Puzzle #---</p>
+          </div>
+          <p id="timerText" class="timer" aria-live="polite">0.0s</p>
+        </div>
+
+        <div class="status-row">
+          <p id="roundText">Round 1 of 3</p>
+          <p id="statusText" role="status" aria-live="polite">Press start to see today's pattern.</p>
+        </div>
+
+        <div id="gameArea" class="game-area is-idle" aria-label="One Wrong Move board">
+          <div id="grid" class="grid" aria-disabled="true"></div>
+        </div>
+
+        <div id="resultPanel" class="result-panel" hidden>
+          <p id="resultText" class="result-text"></p>
+          <pre id="sharePreview" class="share-preview" aria-label="Share result text"></pre>
+        </div>
+
+        <div class="controls">
+          <button id="startButton" class="primary-button" type="button">Start</button>
+          <button id="shareButton" class="secondary-button" type="button" hidden>Share result</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
