@@ -4,6 +4,11 @@
   var Puzzles = window.OneWrongMovePuzzles;
   var Scoring = window.OneWrongMoveScoring;
   var TOTAL_ROUNDS = 3;
+  var ANSWER_MODES = {
+    IDENTIFY_ONE: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.identifyOne) || "identifyOne",
+    CHOOSE_ONE: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.chooseOne) || "chooseOne",
+    MULTI_SELECT: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.multiSelect) || "multiSelect"
+  };
 
   var grid = document.getElementById("grid");
   var gameArea = document.getElementById("gameArea");
@@ -34,6 +39,8 @@
   var scoreText = document.getElementById("scoreText");
   var sharePreview = document.getElementById("sharePreview");
   var startButton = document.getElementById("startButton");
+  var submitButton = document.getElementById("submitButton");
+  var clearSelectionButton = document.getElementById("clearSelectionButton");
   var shareButton = document.getElementById("shareButton");
   var playMixButton = document.getElementById("playMixButton");
   var restartButton = document.getElementById("restartButton");
@@ -52,6 +59,8 @@
 
   puzzleText.textContent = "Puzzle #" + padNumber(puzzleNumber, 3);
   startButton.addEventListener("click", handlePrimaryAction);
+  submitButton.addEventListener("click", handleSelectionSubmit);
+  clearSelectionButton.addEventListener("click", clearSelection);
   restartButton.addEventListener("click", startVariantMix);
   playMixButton.addEventListener("click", startVariantMix);
   shareButton.addEventListener("click", shareResult);
@@ -68,7 +77,9 @@
       rounds: puzzle.rounds.map(function () {
         return {
           solved: false,
-          mistakes: 0
+          mistakes: 0,
+          selectedIndices: [],
+          wrongIndices: []
         };
       })
     };
@@ -141,7 +152,7 @@
     mistakeText.textContent = "Mistakes " + state.totalMistakes;
     timerText.textContent = formatSeconds(state.activeElapsedMs);
     roundName.textContent = sessionAttempt > 1 ? "Replay variant ready" : "Daily puzzle ready";
-    ruleText.textContent = "One board. One rule. One wrong move.";
+    ruleText.textContent = "One board. One rule. One move — or one precise set of moves.";
     instructionText.textContent = "Score = rounded-up solving time + 10s per mistake. Lower is better.";
     updateButtons();
   }
@@ -152,6 +163,8 @@
     pauseTimer();
     state.phase = "briefing";
     state.roundIndex = roundIndex;
+    state.rounds[roundIndex].selectedIndices = [];
+    state.rounds[roundIndex].wrongIndices = [];
     hideFeedback();
     hideBoard("Round " + (roundIndex + 1) + " is hidden until you press Start Round.");
     resultPanel.hidden = true;
@@ -162,7 +175,10 @@
 
   function startActiveRound() {
     var round = puzzle.rounds[state.roundIndex];
+    var roundState = state.rounds[state.roundIndex];
 
+    roundState.selectedIndices = [];
+    roundState.wrongIndices = [];
     state.phase = "active";
     hideFeedback();
     hideBriefingDetails();
@@ -180,26 +196,127 @@
 
     var index = Number(event.currentTarget.dataset.index);
     var round = puzzle.rounds[state.roundIndex];
-    var roundState = state.rounds[state.roundIndex];
 
-    if (index === round.answerIndex) {
+    if (round.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      toggleMultiSelectCell(index, round);
+      return;
+    }
+
+    handleSingleAnswerTap(index, round);
+  }
+
+  function handleSingleAnswerTap(index, round) {
+    var roundState = state.rounds[state.roundIndex];
+    var answerIndices = getAnswerIndices(round);
+
+    if (answerIndices.indexOf(index) !== -1) {
       pauseTimer();
       state.phase = "feedback";
       roundState.solved = true;
+      roundState.selectedIndices = [];
+      roundState.wrongIndices = [];
       showFeedback("Correct", round.explanation, "success");
       renderRound(round, {
-        correctIndex: round.answerIndex,
+        correctIndices: answerIndices,
         relatedIndexes: round.relatedIndexes || []
       });
       updateButtons();
       return;
     }
 
+    markMistake(round, [index], round.wrongTapHint || round.hint);
+  }
+
+  function toggleMultiSelectCell(index, round) {
+    var roundState = state.rounds[state.roundIndex];
+    var cell = round.cells[index] || round.board[index];
+
+    if (!cell || cell.selectable === false || cell.interactive === false) {
+      showFeedback("Not selectable", round.wrongTapHint || "Select only legal move squares, then submit.", "warning");
+      return;
+    }
+
+    roundState.wrongIndices = [];
+
+    if (roundState.selectedIndices.indexOf(index) === -1) {
+      if (!round.maxSelections || roundState.selectedIndices.length < round.maxSelections) {
+        roundState.selectedIndices.push(index);
+      }
+    } else {
+      roundState.selectedIndices = roundState.selectedIndices.filter(function (item) {
+        return item !== index;
+      });
+    }
+
+    roundState.selectedIndices.sort(function (a, b) {
+      return a - b;
+    });
+    hideFeedback();
+    renderRound(round);
+    updateButtons();
+  }
+
+  function handleSelectionSubmit() {
+    if (state.phase !== "active") {
+      return;
+    }
+
+    var round = puzzle.rounds[state.roundIndex];
+    var roundState = state.rounds[state.roundIndex];
+    var answerIndices = getAnswerIndices(round);
+    var selected = roundState.selectedIndices.slice().sort(sortNumbers);
+    var minSelections = round.minSelections || answerIndices.length;
+
+    if (round.answerMode !== ANSWER_MODES.MULTI_SELECT) {
+      return;
+    }
+
+    if (selected.length < minSelections) {
+      showFeedback("Keep looking", "Select every required square before submitting.", "warning");
+      return;
+    }
+
+    if (sameSet(selected, answerIndices)) {
+      pauseTimer();
+      state.phase = "feedback";
+      roundState.solved = true;
+      roundState.wrongIndices = [];
+      showFeedback("Correct", round.explanation, "success");
+      renderRound(round, {
+        correctIndices: answerIndices,
+        relatedIndexes: round.relatedIndexes || []
+      });
+      updateButtons();
+      return;
+    }
+
+    markMistake(round, selected, round.wrongTapHint || "The selected set does not exactly match the rule.");
+  }
+
+  function clearSelection() {
+    if (state.phase !== "active") {
+      return;
+    }
+
+    var round = puzzle.rounds[state.roundIndex];
+    var roundState = state.rounds[state.roundIndex];
+
+    roundState.selectedIndices = [];
+    roundState.wrongIndices = [];
+    hideFeedback();
+    renderRound(round);
+    updateButtons();
+  }
+
+  function markMistake(round, indexes, hint) {
+    var roundState = state.rounds[state.roundIndex];
+
     state.totalMistakes += 1;
     roundState.mistakes += 1;
+    roundState.wrongIndices = indexes.slice();
     updateMistakes();
-    showFeedback("Try again", round.hint, "warning");
-    renderRound(round, { wrongIndex: index });
+    showFeedback("Try again", hint || "That move does not break the rule.", "warning");
+    renderRound(round);
 
     if (wrongFeedbackId) {
       window.clearTimeout(wrongFeedbackId);
@@ -207,9 +324,10 @@
 
     wrongFeedbackId = window.setTimeout(function () {
       if (state.phase === "active") {
+        roundState.wrongIndices = [];
         renderRound(round);
       }
-    }, 650);
+    }, 850);
   }
 
   function completeGame() {
@@ -268,17 +386,24 @@
   }
 
   function renderRound(round, markers) {
+    var roundState = state.rounds[state.roundIndex];
+
     markers = markers || {};
     renderCells(round.cells, {
       disabled: state.phase !== "active",
-      correctIndex: markers.correctIndex,
-      wrongIndex: markers.wrongIndex,
+      answerMode: round.answerMode,
+      correctIndices: markers.correctIndices || [],
+      wrongIndices: markers.wrongIndices || roundState.wrongIndices || [],
+      selectedIndices: state.phase === "feedback" ? [] : roundState.selectedIndices || [],
       relatedIndexes: markers.relatedIndexes || []
     });
   }
 
   function renderCells(cells, options) {
     options.relatedIndexes = options.relatedIndexes || [];
+    options.correctIndices = options.correctIndices || [];
+    options.wrongIndices = options.wrongIndices || [];
+    options.selectedIndices = options.selectedIndices || [];
     grid.innerHTML = "";
     grid.setAttribute("aria-disabled", options.disabled ? "true" : "false");
 
@@ -286,13 +411,19 @@
       var cell = document.createElement("button");
       var row = Math.floor(index / Puzzles.GRID_SIZE) + 1;
       var column = (index % Puzzles.GRID_SIZE) + 1;
+      var isSelectable = cellData.selectable !== false && cellData.interactive !== false;
 
       cell.type = "button";
       cell.className = getCellClassName(cellData, index, options);
       cell.dataset.index = String(index);
-      cell.disabled = Boolean(options.disabled || cellData.interactive === false);
+      cell.disabled = Boolean(options.disabled || !isSelectable);
       renderCellContents(cell, cellData);
-      cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column));
+      cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column, options));
+
+      if (options.answerMode === ANSWER_MODES.MULTI_SELECT) {
+        cell.setAttribute("aria-pressed", options.selectedIndices.indexOf(index) !== -1 ? "true" : "false");
+      }
+
       cell.addEventListener("click", handleCellClick);
       grid.appendChild(cell);
     });
@@ -311,6 +442,14 @@
       corner.className = "cell-corner";
       corner.textContent = cellData.cornerLabel;
       cell.appendChild(corner);
+    }
+
+    if (cellData.subLabel) {
+      var subLabel = document.createElement("span");
+
+      subLabel.className = "cell-sub-label";
+      subLabel.textContent = cellData.subLabel;
+      cell.appendChild(subLabel);
     }
   }
 
@@ -337,12 +476,16 @@
       }
     });
 
-    if (index === options.correctIndex) {
+    if (options.correctIndices.indexOf(index) !== -1) {
       classNames.push("is-correct");
     }
 
-    if (index === options.wrongIndex) {
+    if (options.wrongIndices.indexOf(index) !== -1) {
       classNames.push("is-wrong-tap");
+    }
+
+    if (options.selectedIndices.indexOf(index) !== -1) {
+      classNames.push("is-selected");
     }
 
     if (options.relatedIndexes.indexOf(index) !== -1) {
@@ -352,19 +495,40 @@
     return classNames.join(" ");
   }
 
-  function getCellAriaLabel(cellData, row, column) {
+  function getCellAriaLabel(cellData, row, column, options) {
     var visible = cellData.ariaLabel || cellData.label || cellData.glyph || "empty square";
+    var selected = options && options.selectedIndices && options.selectedIndices.indexOf((row - 1) * Puzzles.GRID_SIZE + (column - 1)) !== -1;
 
-    return "Row " + row + ", column " + column + ", " + visible;
+    return "Row " + row + ", column " + column + ", " + visible + (selected ? ", selected" : "");
   }
 
   function updateHeader(round) {
+    var activeInstruction = round.instruction;
+
+    if (state.phase === "active" && round.answerMode === ANSWER_MODES.CHOOSE_ONE) {
+      activeInstruction = "Choose the best move square.";
+    } else if (state.phase === "active" && round.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      activeInstruction = "Select every matching square, then submit.";
+    }
+
     roundText.textContent = "Round " + (state.roundIndex + 1) + " of " + TOTAL_ROUNDS;
     roundName.textContent = round.title + " · " + round.sourceWorld;
     ruleText.textContent = state.phase === "briefing" ? round.briefingText : round.rule;
-    instructionText.textContent = state.phase === "briefing" ? "Study the mechanic. The board stays hidden and the timer is paused." : round.instruction;
+    instructionText.textContent = state.phase === "briefing" ? getBriefingInstruction(round) : activeInstruction;
     updateMistakes();
     updateVariantLabel();
+  }
+
+  function getBriefingInstruction(round) {
+    if (round.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      return "This round uses multiple selections. The board stays hidden and the timer is paused.";
+    }
+
+    if (round.answerMode === ANSWER_MODES.CHOOSE_ONE) {
+      return "This round asks for one best move. The board stays hidden and the timer is paused.";
+    }
+
+    return "Study the mechanic. The board stays hidden and the timer is paused.";
   }
 
   function updateMistakes() {
@@ -376,7 +540,14 @@
   }
 
   function updateButtons() {
+    var round = puzzle.rounds[state.roundIndex];
+    var roundState = state.rounds[state.roundIndex];
+    var isMultiSelect = round && round.answerMode === ANSWER_MODES.MULTI_SELECT;
+    var selectedCount = roundState ? roundState.selectedIndices.length : 0;
+
     startButton.hidden = true;
+    submitButton.hidden = true;
+    clearSelectionButton.hidden = true;
     shareButton.hidden = true;
     playMixButton.hidden = true;
     restartButton.hidden = true;
@@ -395,6 +566,13 @@
     }
 
     if (state.phase === "active") {
+      if (isMultiSelect) {
+        submitButton.hidden = false;
+        submitButton.textContent = round.submitLabel || "Submit";
+        submitButton.disabled = selectedCount < (round.minSelections || 1);
+        clearSelectionButton.hidden = false;
+        clearSelectionButton.disabled = selectedCount === 0;
+      }
       restartButton.hidden = false;
       return;
     }
@@ -560,6 +738,27 @@
     return lines.join("\n");
   }
 
+  function getAnswerIndices(round) {
+    if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
+      return round.answerIndices.slice().sort(sortNumbers);
+    }
+
+    return typeof round.answerIndex === "number" ? [round.answerIndex] : [];
+  }
+
+  function sameSet(left, right) {
+    left = left.slice().sort(sortNumbers);
+    right = right.slice().sort(sortNumbers);
+
+    return left.length === right.length && left.every(function (item, index) {
+      return item === right[index];
+    });
+  }
+
+  function sortNumbers(a, b) {
+    return a - b;
+  }
+
   function getStoredAttempt() {
     var stored = Number(window.sessionStorage.getItem(attemptKey));
 
@@ -582,14 +781,20 @@
 
   window.OneWrongMove = {
     getSnapshot: function () {
+      var currentRound = puzzle.rounds[state.roundIndex];
+      var currentRoundState = state.rounds[state.roundIndex];
+
       return {
         dateKey: todayKey,
         puzzleNumber: puzzleNumber,
         sessionAttempt: sessionAttempt,
         phase: state.phase,
         roundIndex: state.roundIndex,
-        answerIndex: puzzle.rounds[state.roundIndex] ? puzzle.rounds[state.roundIndex].answerIndex : null,
-        breakSignature: puzzle.rounds[state.roundIndex] ? puzzle.rounds[state.roundIndex].breakSignature : null,
+        answerMode: currentRound ? currentRound.answerMode : null,
+        answerIndex: currentRound ? currentRound.answerIndex : null,
+        answerIndices: currentRound ? getAnswerIndices(currentRound) : [],
+        selectedIndices: currentRoundState ? currentRoundState.selectedIndices.slice() : [],
+        breakSignature: currentRound ? currentRound.breakSignature : null,
         totalMistakes: state.totalMistakes,
         elapsedMs: getElapsedMs(),
         score: Scoring.calculateScore(getElapsedMs(), state.totalMistakes),
@@ -598,6 +803,9 @@
         validation: Puzzles.validatePuzzle(puzzle),
         roundIds: puzzle.rounds.map(function (round) {
           return round.id;
+        }),
+        answerModes: puzzle.rounds.map(function (round) {
+          return round.answerMode;
         }),
         roundNames: puzzle.rounds.map(function (round) {
           return round.name;
@@ -614,7 +822,8 @@
         rounds: state.rounds.map(function (roundState) {
           return {
             solved: roundState.solved,
-            mistakes: roundState.mistakes
+            mistakes: roundState.mistakes,
+            selectedIndices: roundState.selectedIndices.slice()
           };
         })
       };

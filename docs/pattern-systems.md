@@ -4,58 +4,116 @@
 
 Symbols are rule carriers, not decoration.
 
-The player should never be asked to scan for a rare icon just because it is rare. A symbol earns its place when it brings structure: rank, suit, movement, adjacency, pairing, sequence, count, direction, habitat, input/output, or another inferable relation.
+The player should never be asked to scan for a rare icon just because it is rare. A symbol earns its place when it brings structure: rank, suit, movement, adjacency, pairing, sequence, count, direction, input/output, or another inferable relation.
 
 ## Why Abstract Glyphs Are Not Enough
 
 The abstract glyph pool improved the original memory MVP, but it still risked feeling arbitrary. A moon, crown, eye, and diamond can form rows and pairs, but they do not carry much built-in meaning. That makes the player ask, "What convention did the generator invent?" instead of, "What rule can I infer?"
 
-Real-world systems give the puzzle a shared vocabulary. Cards suggest rank and suit. Chess suggests movement. Go suggests liberties. Logic gates suggest truth tables. These systems make the solve more memorable and let difficulty come from reasoning instead of visual clutter.
+Real-world systems give the puzzle a shared vocabulary. Cards suggest rank and suit. Chess suggests movement. Go suggests liberties. Logic gates suggest truth tables. Dominoes suggest matching. These systems make the solve more memorable and let difficulty come from reasoning instead of visual clutter.
 
 ## 5x5 Constraints
 
 A 5x5 board is small enough for phones and large enough for evidence. It can show five rows of examples, five columns of constraints, a compact path, or a source/copy split. The constraint is also unforgiving:
 
 - The rule must be learnable from very few examples.
-- The answer must fit in one tap target.
+- The answer must fit in one tap target or one exact selected set.
 - Symbols must remain readable at phone size.
 - The board cannot depend on tiny annotations.
 - Any source-world knowledge must be taught in the briefing if it is not obvious.
+
+## Production Puzzle Inventory
+
+| Type | Source world | Answer mode | Difficulty | Rule mechanic | Validator |
+| --- | --- | --- | --- | --- | --- |
+| Suit Cycle | Playing cards | identifyOne | 1 | Suit cycle shifts across rows | Expected-board mismatch |
+| Pair Pact | Relationships | identifyOne | 1 | Established partner pairs | Expected-board mismatch |
+| Domino Chain | Dominoes | identifyOne | 1 | Neighboring halves match | Expected-board mismatch |
+| Dice Sum | Dice | identifyOne | 1 | Row target sums | Expected-board mismatch |
+| Card Straight | Playing cards | identifyOne | 2 | Rank progressions plus suit rhythm | Expected-board mismatch |
+| Logic Gate Row | Digital logic | identifyOne | 2 | 0/1 gate truth rows | Expected-board mismatch |
+| Mirror Trap | Relationships | identifyOne | 2 | Mirror plus transformed partner | Expected-board mismatch |
+| Rotation Logic | Compass | identifyOne | 2 | Directions rotate by fixed turns | Expected-board mismatch |
+| Latin Trap | Latin square | identifyOne | 2 | One of each symbol per row/column | Expected-board mismatch |
+| Animal Food Web | Ecology | identifyOne | 2 | Obvious food-chain order | Expected-board mismatch |
+| Compass Rose | Compass | identifyOne | 2 | Bearing rotation sequence | Expected-board mismatch |
+| Chess Attack | Chess | identifyOne | 3 | Numbered piece attacks next piece | Independent chess attack validator |
+| Poker Hand Trap | Playing cards | identifyOne | 3 | Row declares hand class | Expected-board mismatch |
+| Train Route | Routes | identifyOne | 3 | Continuous route from S to F | Expected-board mismatch |
+| Checkers Jump | Checkers | identifyOne | 3 | Numbered diagonal movement | Movement validator |
+| Go Capture Max | Go / baduk | chooseOne | 4 | Best move captures most white stones | Independent capture validator |
+| Go Liberties | Go / baduk | multiSelect | 4 | Select all liberties of marked group | Independent liberty validator |
+
+## Retired / Lab-Only Inventory
+
+| Type | Source world | Status | Reason |
+| --- | --- | --- | --- |
+| Rule Rows | Abstract grammar | Retired from daily | Too easy to solve by diagonal scanning and missing-symbol completion. |
+| Conveyor Shift | Abstract grammar | Retired from daily | Too easy to solve by phase scanning rather than deeper reasoning. |
+| Knight Path | Chess | Retired from daily | Valid but narrow; Chess Attack gives piece variety and better texture. |
 
 ## Candidate Pattern Systems
 
 | Candidate | Source world | Symbol set | Rule mechanic | Possible break modes | Difficulty | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| Rule Rows | Abstract grammar | Moon, crown, diamond, eye | Shifted row recipe | Wrong next symbol, duplicate, outside symbol | 1 | Implemented |
-| Conveyor Shift | Abstract grammar | Five glyph tiles | Row-to-row shift | Wrong position, duplicate, neighboring-column symbol | 2 | Implemented |
+| Rule Rows | Abstract grammar | Moon, crown, diamond, eye | Shifted row recipe | Wrong next symbol, duplicate, outside symbol | 1 | Retired/lab |
+| Conveyor Shift | Abstract grammar | Five glyph tiles | Row-to-row shift | Wrong position, duplicate, neighboring-column symbol | 2 | Retired/lab |
 | Rotation Logic | Compass | N, E, S, W, diagonals | Fixed rotation step | Wrong turn, opposite, skipped bearing | 2 | Implemented |
 | Latin Trap | Latin square | Five glyphs | One of each symbol per row/column | Row duplicate, column duplicate, missing-symbol trap | 2 | Implemented |
-| Pair Pact | Pair grammar | Moon/sun, key/lock, etc. | Stable partner pairs | Wrong partner, unchanged leader, outsider | 2 | Implemented |
-| Path Rhythm | Map path | Numbered moves | Alternating movement rhythm | Wrong turn, repeated axis, diagonal slip | 3 | Implemented |
-| Mirror Trap | Mirror mapping | Source/copy symbol pairs | Mirror plus transformation | Unchanged, wrong paired symbol, swapped partner | 3 | Implemented |
-| Card Straight | Playing cards | Ranks and suits | Rank progression with suit rhythm | Wrong rank, wrong suit, duplicate rank, skipped rank | 1 | Implemented |
-| Suit Cycle | Playing cards | Card ranks and suits | Suit cycle shifts by row | Wrong cycle position, duplicate suit, rank/suit mismatch | 2 | Implemented |
-| Knight Path | Chess | Numbered knights | Legal knight L-moves | Orthogonal move, diagonal move, wrong L distance | 3 | Implemented |
-| Chess Attack | Chess | Rook, bishop, knight, king, queen | Piece attacks target vector | Bishop/rook swap, knight one-step, king too far | 4 | Implemented |
-| Go Liberties | Go / baduk | Black stones, white stones, liberties | Orthogonal liberty count | Too few liberties, too many liberties, suicide-like fill | 4 | Implemented |
-| Logic Gate Row | Digital logic | 0, 1, AND, OR, XOR, NAND | Input/gate/output truth row | Wrong AND, OR, XOR, NAND output | 2 | Implemented |
-| Domino Chain | Dominoes | Domino pairs | Neighbor halves match | Left mismatch, right mismatch, swapped domino | 2 | Implemented |
-| Dice Sum | Dice | Die faces 1-6, sum target | Small arithmetic totals | Sum high, sum low, wrong die | 2 | Implemented |
+| Pair Pact | Relationships | Moon/sun, key/lock, bee/flower | Stable partner pairs | Wrong partner, repeated leader, outsider | 1 | Implemented |
+| Mirror Trap | Mirror mapping | Source/copy symbol pairs | Mirror plus transformation | Unchanged, wrong paired symbol, swapped partner | 2 | Implemented |
+| Card Straight | Playing cards | Ranks and suits | Rank progression with suit rhythm | Wrong rank, wrong suit, duplicate rank, skipped rank | 2 | Implemented |
+| Suit Cycle | Playing cards | Card ranks and suits | Suit cycle shifts by row | Wrong cycle position, duplicate suit, rank/suit mismatch | 1 | Implemented |
+| Poker Hand Trap | Playing cards | Pair/flush/run/trips rows | Each row forms a named hand class | Broken pair, broken flush, broken straight, wrong trips | 3 | Implemented |
+| Knight Path | Chess | Numbered knights | Legal knight L-moves | Orthogonal move, diagonal move, wrong L distance | 3 | Retired/lab |
+| Chess Attack | Chess | Rook, bishop, knight, king, queen | Piece attacks next numbered piece | Bishop/rook swap, knight one-step, king too far, queen crooked | 3 | Implemented |
+| Checkmate Net | Chess | Kings, guards, targets | Every target square controlled | Uncovered escape, illegal guard, blocked line | 5 | Backlog |
 | Checkers Jump | Checkers | Numbered checkers | Diagonal movement | Orthogonal step, wrong diagonal direction, fake jump | 3 | Implemented |
+| Go Capture Max | Go / baduk | Black stones, white stones, empty points | Best move captures most stones | Tie trap, non-capture, wrong last liberty | 4 | Implemented |
+| Go Liberties | Go / baduk | Marked group and empty points | Select all orthogonal liberties | Missing liberty, diagonal false liberty, extra non-liberty | 4 | Implemented |
+| Go Save Group | Go / baduk | Atari group and liberties | Choose saving move or capture threat | Self-atari, wrong liberty, false capture | 4 | Backlog |
+| Logic Gate Row | Digital logic | 0, 1, AND, OR, XOR, NAND | Input/gate/output truth row | Wrong AND, OR, XOR, NAND output | 2 | Implemented |
+| Circuit Trace | Electronics | Wires, gates, outputs | Signals flow through a tiny circuit | Broken wire, inverted output, impossible gate | 4 | Backlog |
+| Domino Chain | Dominoes | Domino numeric halves | Neighbor halves match | Left mismatch, right mismatch, swapped domino | 1 | Implemented |
+| Dice Sum | Dice | Die faces 1-6, sum target | Small arithmetic totals | Sum high, sum low, wrong die | 1 | Implemented |
+| Train Route | Transit maps | S, F, track straights and curves | One continuous connected route | Broken turn, dead end, wrong straight, bad station exit | 3 | Implemented |
 | Animal Food Web | Ecology | Plant, insect, frog, snake, hawk | Food-chain order | Wrong habitat, wrong chain position, predator/prey mismatch | 2 | Implemented |
 | Compass Rose | Compass / clock | Cardinal and diagonal directions | Repeated bearing rotation | Wrong amount, opposite, skipped bearing | 2 | Implemented |
-| Poker Hand Grid | Playing cards | Five-card hands | Each row forms a hand class | Broken pair, broken flush, broken straight | 4 | Backlog |
-| Checkmate Net | Chess | Kings, guards, targets | Every target square controlled | Uncovered escape, illegal guard, blocked line | 5 | Backlog |
-| Go Capture Race | Go / baduk | Stones and liberties | Groups should be in atari or safe | Wrong capture status, false liberty, disconnected group | 5 | Backlog |
-| Circuit Trace | Electronics | Wires, gates, outputs | Signals flow through a tiny circuit | Broken wire, inverted output, impossible gate | 4 | Backlog |
-| Train Routes | Transit maps | Stations, colored lines, transfers | Routes must connect by shared line | Bad transfer, dead end, wrong line color | 3 | Backlog |
+| Calendar Week | Calendar | Days and weekend markers | Day cycle and grouping | Skipped day, wrong weekend marker, impossible sequence | 2 | Backlog |
 | Music Measure | Music | Notes, rests, beats | Measures have equal beat totals | Too many beats, too few beats, wrong rest value | 3 | Backlog |
 | Chemistry Valence | Chemistry | H, O, C, N, bonds | Bond counts match valence | Overbonded atom, underbonded atom, wrong bond type | 4 | Backlog |
 | Sports Formation | Sports | Player positions, lanes, ball | Formation symmetry or coverage | Offside-like placement, uncovered lane, illegal receiver | 3 | Backlog |
-| Calendar Week | Calendar | Days and weekend markers | Day cycle and grouping | Skipped day, wrong weekend marker, impossible sequence | 2 | Backlog |
 | Language Pattern | Linguistics | Prefix/root/suffix tokens | Words follow grammar slots | Bad suffix, wrong agreement, impossible order | 4 | Backlog |
 | Map Compass Walk | Maps | Directions and landmarks | Path follows bearings to landmarks | Wrong turn, impossible crossing, missed landmark | 3 | Backlog |
-| Set Attribute Grid | Set-style logic | Shape, fill, count, orientation | Each row controls attributes | Wrong fill, wrong count, wrong orientation | 4 | Backlog |
+| Set Attribute Grid | Set-style logic | Shape, fill, count, orientation | Rows control attributes | Wrong fill, wrong count, wrong orientation | 4 | Backlog |
+
+## Chess Attack Notes
+
+Chess Attack uses all non-pawn chess pieces: king, queen, rook, bishop, and knight. The piece and number are rendered on the same square with a small corner badge. The rule is sequence-based: each numbered piece must legally attack the next numbered piece.
+
+The validator computes:
+
+- rook attacks along a row or column
+- bishop attacks diagonally
+- queen attacks as rook or bishop
+- knight attacks in an L-shape
+- king attacks one square in any direction
+
+The correct answer is the first numbered attacker that fails. Later consequences do not create extra answers.
+
+## Go Puzzle Notes
+
+Go uses simplified 5x5 rules:
+
+- Orthogonal adjacency connects groups.
+- Empty orthogonal neighbors are liberties.
+- Diagonal empty points are not liberties.
+- A move captures a white group when it fills that group's last liberty.
+- Ko and whole-board life-and-death are out of scope.
+
+Go Capture Max is `chooseOne`: the player taps the empty point that captures the most white stones. The board is valid only if one best move exists and it captures at least one stone.
+
+Go Liberties is `multiSelect`: the player selects every liberty of the marked group and submits. The correct set has one to four cells. Wrong submissions add mistakes and keep the timer running.
 
 ## Avoiding Ambiguity
 
@@ -69,17 +127,24 @@ Every generated board should satisfy these constraints:
 - Math and logic systems use small values.
 - Real-world knowledge is taught in the briefing.
 - Feedback names the specific reason the tapped cell breaks the rule.
+- Multi-select puzzles require an exact set, not a vague region.
 
 ## Independent Validators
 
 Every generated board needs a validator because procedural puzzles fail in quiet ways. A generator can accidentally create two valid answers, hide the rule, reuse a stale break, or choose a break that creates an earlier consequence.
 
-Validators enforce the product promise. They check board size, required metadata, active cells, unique answer, answer index agreement, difficulty ranges, source-world diversity, and session variation. The current system validates 300 dates, five session attempts, and all registered puzzle types directly.
+Validators enforce the product promise. They check board size, required metadata, active cells, answer mode, unique single answer or exact multi-answer set, answer agreement, difficulty ranges, source-world diversity, retired-type exclusion, and session variation.
 
-The ideal next step is to make each validator encode domain logic independently. For example, the Go validator should count liberties from the board, the chess validator should compute legal attacks, and the card validator should infer rank and suit progressions.
+The current strongest validators encode domain logic independently:
+
+- Chess Attack computes legal attacks from piece positions.
+- Go Capture Max computes capture scores from the board.
+- Go Liberties computes the marked group's liberties from the board.
+
+Expected-board validators remain useful for controlled pattern systems, but more production puzzle types should graduate to independent domain validators over time.
 
 ## Why Real-World Systems Help
 
-Real-world systems make puzzles stickier because the symbols have consequences. A knight invites movement reasoning. A domino invites matching. A logic gate invites evaluation. A food chain invites ordering. These systems create a small act of recognition before the solve, which makes the violation feel clever instead of arbitrary.
+Real-world systems make puzzles stickier because the symbols have consequences. A knight invites movement reasoning. A domino invites matching. A logic gate invites evaluation. A Go stone invites liberty counting. A food chain invites ordering. These systems create a small act of recognition before the solve, which makes the violation feel clever instead of arbitrary.
 
 The goal is not trivia. The briefing must teach any needed rule, and the board must prove the answer. The source world gives the rule flavor and memory; the validator gives it rigor.

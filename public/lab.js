@@ -19,48 +19,98 @@
     var params = new URLSearchParams(window.location.search);
     var showAnswers = params.get("showAnswers") === "1";
     var focusType = params.get("focus") || "";
-    var labTypes = focusType ? Puzzles.puzzleTypes.filter(function (type) {
-      return type.id === focusType;
-    }) : Puzzles.puzzleTypes;
+    var activeTypes = Puzzles.puzzleTypes.filter(function (type) {
+      return !type.retired;
+    });
+    var retiredTypes = Puzzles.puzzleTypes.filter(function (type) {
+      return type.retired;
+    });
+
+    if (focusType) {
+      activeTypes = activeTypes.filter(function (type) {
+        return type.id === focusType;
+      });
+      retiredTypes = retiredTypes.filter(function (type) {
+        return type.id === focusType;
+      });
+    }
 
     attemptInput.value = String(attempt);
     labList.innerHTML = "";
 
-    labTypes.forEach(function (type, typeIndex) {
-      var round = type.generate(seed + "|lab|" + type.id + "|" + attempt, typeIndex + 1, attempt, []);
-      var validation = type.validate(round);
-      var card = document.createElement("article");
+    renderSection("Production puzzle types", activeTypes, seed, attempt, showAnswers);
+    renderSection("Retired / lab-only puzzle types", retiredTypes, seed, attempt, showAnswers);
+  }
 
-      card.className = "lab-card";
-      card.innerHTML =
-        "<div class=\"lab-card-header\">" +
-          "<div>" +
-            "<p class=\"round-name\">" + escapeHtml(type.sourceWorld) + " · difficulty " + type.difficulty + "</p>" +
-            "<h2>" + escapeHtml(type.name) + "</h2>" +
-          "</div>" +
-          "<button class=\"secondary-button lab-answer-button\" type=\"button\">Show answer</button>" +
-        "</div>" +
-        "<p class=\"lab-briefing\">" + escapeHtml(type.briefing) + "</p>" +
-        "<div class=\"symbol-chips\">" + type.symbols.map(function (symbol) {
-          return "<span class=\"symbol-chip\">" + escapeHtml(symbol) + "</span>";
-        }).join("") + "</div>" +
-        "<div class=\"lab-grid grid\" aria-label=\"" + escapeHtml(type.name) + " sample board\"></div>" +
-        "<dl class=\"lab-meta\">" +
-          "<div><dt>Break signature</dt><dd>" + escapeHtml(round.breakSignature) + "</dd></div>" +
-          "<div><dt>Evidence</dt><dd>" + escapeHtml(round.evidence) + "</dd></div>" +
-          "<div><dt>Answer</dt><dd class=\"lab-answer-text\">Hidden</dd></div>" +
-          "<div><dt>Validator</dt><dd>" + (validation.valid ? "valid" : "invalid") + "</dd></div>" +
-        "</dl>";
+  function renderSection(title, types, seed, attempt, showAnswers) {
+    var section = document.createElement("section");
+    var heading = document.createElement("h2");
 
-      renderBoard(card.querySelector(".lab-grid"), round.board);
-      card.querySelector(".lab-answer-button").addEventListener("click", function (event) {
-        toggleAnswer(card, round, event.currentTarget);
-      });
-      labList.appendChild(card);
-      if (showAnswers) {
-        toggleAnswer(card, round, card.querySelector(".lab-answer-button"));
-      }
+    section.className = "lab-section";
+    heading.className = "lab-section-title";
+    heading.textContent = title + " (" + types.length + ")";
+    section.appendChild(heading);
+
+    if (types.length === 0) {
+      var empty = document.createElement("p");
+
+      empty.className = "lab-briefing";
+      empty.textContent = "No puzzle types match this filter.";
+      section.appendChild(empty);
+      labList.appendChild(section);
+      return;
+    }
+
+    var cards = document.createElement("div");
+
+    cards.className = "lab-card-grid";
+    types.forEach(function (type, typeIndex) {
+      cards.appendChild(renderTypeCard(type, seed, attempt, showAnswers, typeIndex));
     });
+    section.appendChild(cards);
+    labList.appendChild(section);
+  }
+
+  function renderTypeCard(type, seed, attempt, showAnswers, typeIndex) {
+    var round = type.generate(seed + "|lab|" + type.id + "|" + attempt, typeIndex + 1, attempt, []);
+    var validation = type.validate(round);
+    var card = document.createElement("article");
+    var answerMode = round.answerMode || type.answerMode || "identifyOne";
+
+    card.className = "lab-card" + (type.retired ? " is-retired" : "");
+    card.innerHTML =
+      "<div class=\"lab-card-header\">" +
+        "<div>" +
+          "<p class=\"round-name\">" + escapeHtml(type.sourceWorld) + " · difficulty " + type.difficulty + " · " + escapeHtml(answerMode) + "</p>" +
+          "<h3>" + escapeHtml(type.name) + "</h3>" +
+        "</div>" +
+        "<button class=\"secondary-button lab-answer-button\" type=\"button\">Show answer</button>" +
+      "</div>" +
+      "<p class=\"lab-briefing\">" + escapeHtml(type.briefing) + "</p>" +
+      (type.retired ? "<p class=\"lab-retired-note\">" + escapeHtml(type.retiredReason || "Retired from daily play.") + "</p>" : "") +
+      "<div class=\"symbol-chips\">" + type.symbols.map(function (symbol) {
+        return "<span class=\"symbol-chip\">" + escapeHtml(symbol) + "</span>";
+      }).join("") + "</div>" +
+      "<div class=\"lab-grid grid\" aria-label=\"" + escapeHtml(type.name) + " sample board\"></div>" +
+      "<dl class=\"lab-meta\">" +
+        "<div><dt>Break signature</dt><dd>" + escapeHtml(round.breakSignature) + "</dd></div>" +
+        "<div><dt>Evidence</dt><dd>" + escapeHtml(round.evidence) + "</dd></div>" +
+        "<div><dt>Answer</dt><dd class=\"lab-answer-text\">Hidden</dd></div>" +
+        "<div><dt>Validator</dt><dd>" + (validation.valid ? "valid" : "invalid") + " · " + escapeHtml((validation.answers || []).join(", ")) + "</dd></div>" +
+      "</dl>";
+
+    renderBoard(card.querySelector(".lab-grid"), round.board);
+    card.querySelector(".lab-answer-button").addEventListener("click", function (event) {
+      toggleAnswer(card, round, event.currentTarget);
+    });
+
+    if (showAnswers) {
+      window.setTimeout(function () {
+        toggleAnswer(card, round, card.querySelector(".lab-answer-button"));
+      }, 0);
+    }
+
+    return card;
   }
 
   function renderBoard(container, board) {
@@ -79,12 +129,38 @@
   }
 
   function toggleAnswer(card, round, button) {
-    var answerCell = card.querySelector("[data-index=\"" + round.answerIndex + "\"]");
+    var answerIndices = getAnswerIndices(round);
     var answerText = card.querySelector(".lab-answer-text");
-    var showing = answerCell.classList.toggle("is-correct");
+    var firstAnswerCell = card.querySelector("[data-index=\"" + answerIndices[0] + "\"]");
+    var showing = firstAnswerCell ? !firstAnswerCell.classList.contains("is-correct") : false;
+
+    answerIndices.forEach(function (answerIndex) {
+      var answerCell = card.querySelector("[data-index=\"" + answerIndex + "\"]");
+
+      if (answerCell) {
+        answerCell.classList.toggle("is-correct", showing);
+      }
+    });
+
+    (round.relatedIndexes || []).forEach(function (relatedIndex) {
+      var relatedCell = card.querySelector("[data-index=\"" + relatedIndex + "\"]");
+
+      if (relatedCell) {
+        relatedCell.classList.toggle("is-related", showing);
+      }
+    });
 
     button.textContent = showing ? "Hide answer" : "Show answer";
-    answerText.textContent = showing ? "Cell " + (round.answerIndex + 1) + ": " + round.explanation : "Hidden";
+    answerText.textContent = showing ? answerSummary(round, answerIndices) : "Hidden";
+  }
+
+  function answerSummary(round, answerIndices) {
+    var label = round.answerMode === "multiSelect" ? "Cells " : "Cell ";
+    var numbers = answerIndices.map(function (index) {
+      return index + 1;
+    }).join(", ");
+
+    return label + numbers + ": " + round.explanation;
   }
 
   function renderCellContents(cell, cellData) {
@@ -101,6 +177,14 @@
       corner.textContent = cellData.cornerLabel;
       cell.appendChild(corner);
     }
+
+    if (cellData.subLabel) {
+      var subLabel = document.createElement("span");
+
+      subLabel.className = "cell-sub-label";
+      subLabel.textContent = cellData.subLabel;
+      cell.appendChild(subLabel);
+    }
   }
 
   function getCellClassName(cellData) {
@@ -115,6 +199,11 @@
         classNames.push(safePart);
       }
     });
+
+    if (cellData.zone) {
+      classNames.push("zone--" + cellData.zone);
+    }
+
     (cellData.classNames || []).forEach(function (className) {
       if (className) {
         classNames.push(className);
@@ -122,6 +211,16 @@
     });
 
     return classNames.join(" ");
+  }
+
+  function getAnswerIndices(round) {
+    if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
+      return round.answerIndices.slice().sort(function (a, b) {
+        return a - b;
+      });
+    }
+
+    return typeof round.answerIndex === "number" ? [round.answerIndex] : [];
   }
 
   function escapeHtml(value) {

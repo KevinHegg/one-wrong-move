@@ -2,19 +2,27 @@
 
 One Wrong Move is a daily mobile-first visual logic puzzle:
 
-> One board. One rule. One wrong move.
+> One board. One rule. One move — or one precise set of moves.
 
-Each board contains a small visual rule system. Exactly one symbol breaks that system, and the player taps the violating symbol. The game does not use memory previews, plain color spotting, React, Vite, TypeScript, canvas, or external frontend libraries.
+Each board contains a compact visual rule system. The player infers the rule and either taps the one violating symbol, chooses the one best move, or selects the exact set of required squares. The game does not use memory previews, trivial color spotting, React, Vite, TypeScript, canvas, or external frontend libraries.
 
-The app is plain HTML, CSS, and JavaScript. It runs directly from `public/index.html` and deploys as a static Netlify site from the `public` folder.
+The app is plain HTML, CSS, and JavaScript. It runs directly from `public/index.html`, deploys as a static Netlify site from `public`, and can also be tested from the repository root on GitHub Pages.
 
 ## How A Game Works
 
 Each daily puzzle has three rounds. The board is hidden until a round starts. Before every round, a paused briefing card shows the round name, source world, one-sentence goal, symbol chips, and a tiny non-spoiler example.
 
-The player presses **Start Round** to reveal the board. The timer runs only while the player is actively solving. It pauses during the intro, round briefings, correct-answer feedback, transitions, and completion screen. Wrong taps add mistakes but keep the timer running.
+The player presses **Start Round** to reveal the board. The timer runs only while the player is actively solving. It pauses during the intro, briefings, correct-answer feedback, transitions, and completion screen. Wrong taps or wrong submissions add mistakes but keep the timer running.
 
-After a correct tap, the game highlights the answer, explains the rule violation, and waits for **Next Round**. After round 3, the final screen shows solved rounds, active solving time, mistakes, a lower-is-better time score, share text, **Play another mix**, and restart.
+After a correct answer, the game highlights the answer, explains the rule, and waits for **Next Round**. After round 3, the final screen shows solved rounds, active solving time, mistakes, a lower-is-better time score, share text, **Play another mix**, and restart.
+
+## Answer Modes
+
+- `identifyOne`: tap exactly one symbol that breaks the board rule.
+- `chooseOne`: tap exactly one best move square, such as the Go move that captures the most stones.
+- `multiSelect`: select one or more squares, then press **Submit**. The submitted set must exactly match the answer set.
+
+All active puzzle cells are native buttons with keyboard support and ARIA labels.
 
 ## Scoring
 
@@ -32,30 +40,29 @@ Mistakes add time because they should matter without turning the game into abstr
 
 ## Puzzle Pool
 
-The daily game selects three puzzle types from a deterministic pool, with difficulty escalating by round. The current production pool includes 18 types:
+The daily game selects three active production puzzle types from a deterministic pool, with difficulty escalating by round. Current active types include:
 
-- Rule Rows
-- Conveyor Shift
-- Rotation Logic
-- Latin Trap
-- Pair Pact
-- Path Rhythm
-- Mirror Trap
 - Card Straight
 - Suit Cycle
-- Knight Path
+- Poker Hand Trap
 - Chess Attack
+- Go Capture Max
 - Go Liberties
 - Logic Gate Row
 - Domino Chain
 - Dice Sum
+- Train Route
+- Mirror Trap
+- Pair Pact
+- Rotation Logic
+- Latin Trap
 - Checkers Jump
 - Animal Food Web
 - Compass Rose
 
-The newer source-world puzzles borrow logic from playing cards, chess, Go, digital logic, dominoes, dice, checkers, ecology, and compass systems. Symbols are treated as rule carriers, not decoration.
+Rule Rows, Conveyor Shift, and Knight Path remain in the lab as retired/backlog puzzle types, but they are no longer selected for the daily mix. They were too easy or less satisfying than the richer source-world puzzles.
 
-Puzzle selection and board generation use a deterministic seed based on `YYYY-MM-DD`, so everyone gets the same daily puzzle. The daily mix avoids duplicate puzzle types, prefers source-world diversity, limits abstract glyph puzzles, and escalates difficulty across the three rounds.
+Puzzle selection and board generation use a deterministic seed based on `YYYY-MM-DD`, so everyone gets the same daily puzzle. The daily mix avoids duplicate puzzle types, prefers source-world diversity, avoids duplicate card/Go/movement families when possible, and escalates difficulty across the three rounds.
 
 ## Same-Session Variants
 
@@ -77,7 +84,7 @@ When served locally, visit:
 http://localhost:8080/lab.html
 ```
 
-The lab renders every registered puzzle type with a seed/date input, session attempt input, sample board, hidden answer toggle, break signature, evidence string, and validator status.
+The lab renders production puzzle types separately from retired lab-only types. Each card shows source world, difficulty, answer mode, symbol bank, sample board, hidden answer toggle, break signature, evidence string, and validator status.
 
 ## Run Locally
 
@@ -130,6 +137,6 @@ The root `index.html` loads the same app files from `public/` so the game can be
 - The daily puzzle uses the browser's local date.
 - There is no daily archive, leaderboard, cloud save, or practice mode yet.
 - Puzzle generation uses curated deterministic templates rather than a full procedural search engine.
-- Some validators compare against generated expected boards; future validators can encode more independent domain logic.
+- Some validators compare against generated expected boards; the strongest validators now independently compute Go liberties, Go captures, and chess attacks.
 - Same-session variation is stored locally in the current browser session only.
 - Share text copies to the clipboard when the browser allows it; otherwise it appears in an alert and selectable text area.
