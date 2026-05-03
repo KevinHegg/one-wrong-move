@@ -31,7 +31,7 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Domino Chain | Dominoes | identifyOne | 1 | Neighboring halves match | Expected-board mismatch |
 | Dice Sum | Dice | identifyOne | 1 | Row target sums | Expected-board mismatch |
 | Card Straight | Playing cards | identifyOne | 2 | Rank progressions plus suit rhythm | Expected-board mismatch |
-| Logic Gate Row | Digital logic | identifyOne | 2 | 0/1 gate truth rows | Expected-board mismatch |
+| Logic Gate Row | Digital logic | identifyOne | 2 | Tap the wrong output in 0/1 gate truth rows | Output-target validator |
 | Mirror Trap | Relationships | identifyOne | 2 | Mirror plus transformed partner | Expected-board mismatch |
 | Rotation Logic | Compass | identifyOne | 2 | Directions rotate by fixed turns | Expected-board mismatch |
 | Latin Trap | Latin square | identifyOne | 2 | One of each symbol per row/column | Expected-board mismatch |
@@ -47,7 +47,12 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Maze Exit | Maze / map | chooseOne | 2 | Trace from S to the one reachable exit | Reachability validator |
 | Maze Key Exit | Maze / map | twoStep | 3 | Choose the reachable key and matching exit | Two-step answer validator |
 | Scrabble Cross | Word tiles | twoStep | 3 | Place one rack tile to form valid crossing words | Two-step answer validator |
+| Mini Crossword Fill | Crossword / words | twoStep | 2 | Place one rack letter into one blank crossing | Word uniqueness validator |
+| Crossword Pair | Crossword / words | multiSelect | 3 | Select two blanks and two rack letters that repair crossings | Word-set validator |
 | Tetris Fit | Polyominoes | multiSelect | 3 | Select the exact tetromino placement cells | Exact answer-set validator |
+| Circuit Switch Pair | Circuits | multiSelect | 3 | Select two switches that turn on the target light | Switch-pair validator |
+| Maze Bridge Repair | Maze / map | multiSelect | 3 | Repair two broken bridge tiles to connect S to E | Reachability pair validator |
+| Row Rhythm | Logic grid | identifyOne | 2 | Tap the row that breaks a row grammar | Row-target validator |
 
 ## Retired / Lab-Only Inventory
 
@@ -86,7 +91,12 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Maze Exit | Maze / maps | Start, walls, paths, exits | Trace reachable route | Unreachable exit, blocked bridge, wrong branch | 2 | Implemented |
 | Maze Key Exit | Maze / maps | Start, keys, exits, walls | Choose reachable key plus opened exit | Wrong key, wrong exit, unreachable pair | 3 | Implemented |
 | Scrabble Cross | Word tiles | Board letters, blank square, rack letters | One tile makes crossing words | Bad horizontal word, bad vertical word, wrong square | 3 | Implemented |
+| Mini Crossword Fill | Crossword / words | Fixed letters, blank square, rack letters | One rack letter completes both crossing words | Wrong blank, wrong letter, one invalid crossing | 2 | Implemented |
+| Crossword Pair | Crossword / words | Fixed letters, two blanks, rack letters | Two blanks and two letters complete all crossings | Wrong square set, wrong letter set, ambiguous assignment | 3 | Implemented |
 | Tetris Fit | Polyominoes | Tetromino cells and target row | One piece placement completes the row | Shifted placement, wrong tetromino, incomplete line | 3 | Implemented |
+| Circuit Switch Pair | Circuits | Switches, wires, target light | Exactly two switches flip the target on | One switch short, wrong pair, decoy switch | 3 | Implemented |
+| Maze Bridge Repair | Maze / maps | Start, exit, walls, broken bridges | Exactly two repairs reconnect the route | Wrong bridge, alternate invalid pair, blocked shortcut | 3 | Implemented |
+| Row Rhythm | Logic grid | Repeated row symbols | Each row follows a count-and-order grammar | Broken row, duplicate token, wrong row total | 2 | Implemented |
 | Animal Food Web | Ecology | Plant, insect, frog, snake, hawk | Food-chain order | Wrong habitat, wrong chain position, predator/prey mismatch | 2 | Implemented |
 | Compass Rose | Compass / clock | Cardinal and diagonal directions | Repeated bearing rotation | Wrong amount, opposite, skipped bearing | 2 | Implemented |
 | Calendar Week | Calendar | Days and weekend markers | Day cycle and grouping | Skipped day, wrong weekend marker, impossible sequence | 2 | Backlog |
@@ -108,6 +118,33 @@ Difficulty ramps by level:
 - Levels 9+: harder source-world puzzles and denser variants.
 
 The stream still uses break signatures, so a replay attempt changes the break mode, answer location, or required answer set instead of merely reshuffling the same board.
+
+## Three-Set Free Play Selection
+
+Three-Set Free Play uses the same deterministic date and session-attempt inputs, but selects exactly three approachable puzzles instead of an open-ended ladder. It avoids retired puzzle types, prefers difficulty 1-3, and includes multi-click or word puzzles often enough to teach the broader action model without turning every Free Play set into a gauntlet.
+
+Free Play wrong attempts add mistakes and keep the current puzzle active. Its score is:
+
+```text
+Math.ceil(totalActiveMs / 1000) + mistakes * 10
+```
+
+This lets players practice hard source-world mechanics while still caring about clean solves.
+
+## Targeting Model
+
+Targeting metadata prevents instruction/click mismatch:
+
+| Target type | Player instruction | Accepted answer |
+| --- | --- | --- |
+| `cell` | Tap the wrong tile, symbol, card, or move. | One exact candidate cell. |
+| `row` | Tap the row that breaks the rule. | Any cell in the answer row. |
+| `column` | Tap the column that breaks the rule. | Any cell in the answer column. |
+| `outputCell` | Tap the wrong output. | One enabled output cell; inputs and gates are disabled. |
+| `multiSelect` | Select exact squares, then submit. | One exact answer set. |
+| `twoStep` | Make a planned two-step move, then submit. | One exact ordered role/token pair. |
+
+Logic Gate Row now uses output-only targeting by default. Dice Sum switches between wrong-die and wrong-total targeting so the instruction names the enabled targets. Row Rhythm exists partly as a validation fixture for whole-row behavior.
 
 ## Two-Click And Multi-Answer Design
 
@@ -164,7 +201,15 @@ Maze Key Exit adds a second committed choice: choose the reachable key, then cho
 
 Scrabble Cross uses a curated word list so the solve is about crossing-word logic, not obscure vocabulary. The player chooses one blank square and one rack tile.
 
+Mini Crossword Fill is a tighter two-step word puzzle with one blank and one rack letter. Crossword Pair expands that into a planned multi-select repair: choose two blanks plus the two rack letters that complete the small crossing system. Rack tiles are visually separate from the 5x5 board so players do not confuse board squares with candidate letters.
+
 Tetris Fit asks the player to choose the exact four cells for a tetromino placement that completes a target row. The renderer uses compact colored cells and letters rather than animated pieces, keeping the static-site implementation simple and accessible.
+
+## Circuit And Repair Notes
+
+Circuit Switch Pair is a small multi-select logic puzzle. The player selects exactly two switches to flip so the target light turns on. The validator checks the declared solution pair, switch metadata, and answer set uniqueness.
+
+Maze Bridge Repair is a route-repair puzzle. Broken bridges are candidate cells; exactly one pair reconnects `S` to `E`. Its validator computes reachability with and without the selected repairs so it stays a maze puzzle instead of a decorative path grid.
 
 ## Avoiding Ambiguity
 
@@ -192,6 +237,9 @@ The current strongest validators encode domain logic independently:
 - Go Capture Max computes capture scores from the board.
 - Go Liberties computes the marked group's liberties from the board.
 - Maze Exit computes reachability from the visible walls and paths.
+- Targeting validation checks that row, column, output, exact-cell, multi-select, and two-step instructions match enabled click targets.
+- Free Play validation checks the three-puzzle selector, mistake behavior, and lower-is-better scoring formula.
+- Word-puzzle validation checks curated vocabulary, rack separation, and unique square/letter or blank/letter solutions.
 - Survival validation tests the first 50 levels across 300 dates and five session attempts.
 
 Expected-board validators remain useful for controlled pattern systems, but more production puzzle types should graduate to independent domain validators over time.

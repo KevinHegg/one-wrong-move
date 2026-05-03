@@ -1,20 +1,34 @@
 # One Wrong Move
 
-One Wrong Move is a daily mobile-first visual logic survival puzzle:
+One Wrong Move is a daily mobile-first visual logic puzzle:
 
 > One board. One rule. One move. Survive until your first wrong move.
 
-Each board contains a compact visual rule system. The player infers the rule and either taps the one violating symbol, chooses the one best move, selects the exact set of required squares, or commits a precise two-step move. One wrong committed move ends the run.
+Each board contains a compact visual rule system. The player infers the rule and either taps the one violating symbol, chooses the one best move, selects the exact set of required squares, or commits a precise two-step move.
 
 The app is plain HTML, CSS, and JavaScript. It runs directly from `public/index.html`, deploys as a static Netlify site from `public`, and can also be tested from the repository root on GitHub Pages.
 
-## Survival Run
+## Ladder Run
 
-The main mode is **Survival Run**. A run starts from the intro screen, then generates a deterministic stream of daily levels from `YYYY-MM-DD` plus the same-session attempt number.
+The primary mode is **Ladder Run**. A run starts from the intro screen, then generates a deterministic stream of daily levels from `YYYY-MM-DD` plus the same-session attempt number.
 
 Before each level, a paused briefing card shows the level number, puzzle type, source world, answer mode, symbol chips, and a tiny non-spoiler example. The real board stays hidden until the player presses **Start Level**.
 
 The run continues indefinitely in practice, up to the generated level cap, until the player makes one wrong committed move or the per-level countdown expires. Correct answers pause the timers, show an explanation, and reveal **Next Level**. Wrong moves and timeouts end the run immediately.
+
+## Three-Set Free Play
+
+**Three-Set Free Play** is the lower-stakes companion mode. It plays exactly three puzzles, keeps the paused briefing flow, and lets the player keep solving after a wrong attempt.
+
+Wrong taps or wrong submissions add a mistake and show a hint instead of ending the game. After three solved puzzles, Free Play uses the legacy lower-is-better time score:
+
+```text
+baseSeconds = Math.ceil(totalActiveMs / 1000)
+mistakePenaltySeconds = mistakes * 10
+scoreSeconds = baseSeconds + mistakePenaltySeconds
+```
+
+The result screen shows active time, base time, mistakes, the `10s` mistake penalty, final score in seconds, and "Lower is better." Free Play can be opened directly with `?mode=freeplay`; Ladder can be forced with `?mode=ladder`.
 
 ## Timers And Ranking
 
@@ -28,7 +42,7 @@ Default level limit:
 
 Testing overrides are available with `?limit=30`, `?limit=45`, or `?limit=90`. Valid override values are clamped to the supported range of 15 to 180 seconds.
 
-Survival ranking is intentionally direct:
+Ladder ranking is intentionally direct:
 
 ```text
 More completed levels is better.
@@ -46,7 +60,20 @@ The result screen shows levels completed, total active time, the level where the
 
 All active puzzle cells are native buttons with keyboard support and ARIA labels.
 
-## Legacy Time Score
+## Target Clarity
+
+Every puzzle declares targeting metadata so the instruction and click behavior agree.
+
+- Exact-cell puzzles say to tap the wrong tile, symbol, card, output, or move.
+- Row-level puzzles say to tap the broken row, and any cell in that row is accepted.
+- Column-level puzzles say to tap the broken column, and any cell in that column is accepted.
+- Output-only puzzles, such as Logic Gate Row, make only output cells clickable.
+- Equation puzzles, such as Dice Sum, enable only the wrong kind of target: dice when the die is wrong, totals when the total is wrong.
+- Disabled cells are skipped by keyboard navigation and cannot accidentally end a Ladder run.
+
+The lab displays target type, clickable target count, disabled target count, and accepted row/column/set behavior.
+
+## Time Score Utility
 
 The lower-is-better time score remains available in `public/scoring.js` for validation and historical reports:
 
@@ -56,7 +83,7 @@ mistakePenaltySeconds = mistakes * 10
 scoreSeconds = baseSeconds + mistakePenaltySeconds
 ```
 
-The main Survival Run no longer accumulates mistakes or shows time-penalty scoring. One wrong move ends the run.
+Ladder Run does not accumulate mistakes or show time-penalty scoring. One wrong move ends the run. Three-Set Free Play uses this formula because mistakes are recoverable there.
 
 ## Puzzle Pool
 
@@ -75,7 +102,11 @@ The survival stream selects active production puzzle types from a deterministic 
 - Maze Exit
 - Maze Key Exit
 - Scrabble Cross
+- Mini Crossword Fill
+- Crossword Pair
+- Circuit Switch Pair
 - Tetris Fit
+- Maze Bridge Repair
 - Train Route
 - Mirror Trap
 - Pair Pact
@@ -85,7 +116,7 @@ The survival stream selects active production puzzle types from a deterministic 
 - Animal Food Web
 - Compass Rose
 
-Rule Rows, Conveyor Shift, and Knight Path remain in the lab as retired/backlog puzzle types, but they are no longer selected for Survival Run. They were too easy or less satisfying than the richer source-world puzzles.
+Rule Rows, Conveyor Shift, and Knight Path remain in the lab as retired/backlog puzzle types, but they are no longer selected for Ladder Run or Three-Set Free Play. They were too easy or less satisfying than the richer source-world puzzles.
 
 Puzzle selection and board generation use a deterministic seed based on `YYYY-MM-DD`, so everyone gets the same daily stream for the same attempt. The selector avoids immediate repeats, rotates source worlds, avoids back-to-back card/Go/movement families when possible, and keeps retired puzzles out of the main run.
 
@@ -109,7 +140,7 @@ When served locally, visit:
 http://localhost:8080/lab.html
 ```
 
-The lab renders production puzzle types separately from retired lab-only types. Each card shows source world, difficulty, answer mode, symbol bank, sample board, hidden answer toggle, break signature, evidence string, and validator status. It also includes a Survival Run stream preview for the first 20 generated levels.
+The lab renders production puzzle types separately from retired lab-only types. Each card shows source world, difficulty, answer mode, target type, clickable/disabled target counts, symbol bank, sample board, hidden answer toggle, break signature, evidence string, and validator status. It also includes a Ladder stream preview and a Three-Set Free Play preview.
 
 ## Run Locally
 
@@ -140,6 +171,9 @@ node scripts/validate-scoring.js
 node scripts/validate-puzzles.js
 node scripts/validate-pattern-systems.js
 node scripts/validate-survival.js
+node scripts/validate-targeting.js
+node scripts/validate-freeplay.js
+node scripts/validate-word-puzzles.js
 ```
 
 ## Netlify Deploy Settings

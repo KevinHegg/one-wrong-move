@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-05-03T15:33:50.562Z",
+  "server": "python3 -m http.server 8080 -d public",
+  "browser": "Chrome headless for screenshots; in-app browser DOM/log check for console errors",
+  "consoleErrors": [],
+  "checks": [
+    "Intro shows Start Ladder Run and Three-Set Free Play buttons.",
+    "Ladder Run briefing hides the board until Start Level.",
+    "Ladder wrong committed move ends the run.",
+    "Free Play briefing hides the board until Start Puzzle.",
+    "Free Play wrong tap increments mistakes and keeps the puzzle active.",
+    "Free Play completes after exactly 3 solved puzzles and shows lower-is-better score.",
+    "Logic Gate Row uses output-only targets; inputs/gates/equals are disabled.",
+    "Dice Sum uses unambiguous output target behavior for total variants.",
+    "Row target accepts non-answer cell 10 in the answer row and reached phase feedback.",
+    "Mini Crossword Fill, Crossword Pair, Circuit Switch Pair, and Maze Bridge Repair render in playable states.",
+    "Puzzle lab shows targeting metadata, Free Play preview, and answer hidden/shown states."
+  ],
+  "screenshots": [
+    "010-circuit-switch-pair.png",
+    "010-crossword-pair.png",
+    "010-dice-unambiguous-target.png",
+    "010-freeplay-active.png",
+    "010-freeplay-briefing.png",
+    "010-freeplay-results.png",
+    "010-freeplay-wrong-keeps-playing.png",
+    "010-intro-mode-choice.png",
+    "010-lab-answer-hidden.png",
+    "010-lab-answer-shown.png",
+    "010-lab-freeplay-preview.png",
+    "010-lab-targeting.png",
+    "010-ladder-active.png",
+    "010-ladder-briefing.png",
+    "010-ladder-run-over-wrong.png",
+    "010-logic-correct-feedback.png",
+    "010-logic-output-targets.png",
+    "010-maze-bridge-repair.png",
+    "010-mini-crossword-active.png",
+    "010-mini-crossword-briefing.png",
+    "010-mini-crossword-selected.png",
+    "010-row-target-affordance.png"
+  ]
+}

@@ -8,6 +8,7 @@
   var limitInput = document.getElementById("labLimit");
   var regenerateButton = document.getElementById("labRegenerate");
   var labSurvival = document.getElementById("labSurvival");
+  var labFreePlay = document.getElementById("labFreePlay");
   var labList = document.getElementById("labList");
 
   regenerateButton.addEventListener("click", renderLab);
@@ -43,6 +44,7 @@
     attemptInput.value = String(attempt);
     limitInput.value = String(limit);
     renderSurvivalPreview(seed, attempt, limit);
+    renderFreePlayPreview(seed, attempt);
     labList.innerHTML = "";
 
     renderSection("Production puzzle types", activeTypes, seed, attempt, showAnswers);
@@ -53,10 +55,21 @@
     var stream = Puzzles.generateSurvivalLevels(seed, attempt, [], 20);
 
     labSurvival.innerHTML =
-      "<h2 class=\"lab-section-title\">Survival stream preview</h2>" +
+      "<h2 class=\"lab-section-title\">Ladder stream preview</h2>" +
       "<p class=\"lab-briefing\">First 20 generated levels for this seed. Limit: " + escapeHtml(limit) + "s/level.</p>" +
       "<div class=\"lab-stream-list\">" + stream.levels.map(function (level) {
         return "<span class=\"stream-chip\">" + level.levelNumber + ". " + escapeHtml(level.name) + " · " + escapeHtml(level.sourceWorld) + " · " + escapeHtml(level.answerMode) + "</span>";
+      }).join("") + "</div>";
+  }
+
+  function renderFreePlayPreview(seed, attempt) {
+    var set = Puzzles.generateFreePlaySet(seed, attempt, []);
+
+    labFreePlay.innerHTML =
+      "<h2 class=\"lab-section-title\">Three-Set Free Play preview</h2>" +
+      "<p class=\"lab-briefing\">Three puzzles. Wrong attempts add mistakes. Score = ceil(active seconds) + mistakes × 10s.</p>" +
+      "<div class=\"lab-stream-list\">" + set.levels.map(function (level) {
+        return "<span class=\"stream-chip\">" + level.levelNumber + ". " + escapeHtml(level.name) + " · " + escapeHtml(level.sourceWorld) + " · " + escapeHtml(level.answerMode) + " · " + escapeHtml((level.targeting && level.targeting.targetType) || "cell") + "</span>";
       }).join("") + "</div>";
   }
 
@@ -90,7 +103,8 @@
   }
 
   function renderTypeCard(type, seed, attempt, showAnswers, typeIndex) {
-    var round = type.generate(seed + "|lab|" + type.id + "|" + attempt, typeIndex + 1, attempt, []);
+    var rawRound = type.generate(seed + "|lab|" + type.id + "|" + attempt, typeIndex + 1, attempt, []);
+    var round = Puzzles.normalizeTypeRound ? Puzzles.normalizeTypeRound(type, rawRound, typeIndex + 1) : rawRound;
     var validation = type.validate(round);
     var card = document.createElement("article");
     var answerMode = round.answerMode || type.answerMode || "identifyOne";
@@ -112,6 +126,9 @@
       "<div class=\"lab-grid grid\" aria-label=\"" + escapeHtml(type.name) + " sample board\"></div>" +
       "<dl class=\"lab-meta\">" +
         "<div><dt>Break signature</dt><dd>" + escapeHtml(round.breakSignature) + "</dd></div>" +
+        "<div><dt>Target type</dt><dd>" + escapeHtml((round.targeting && round.targeting.targetType) || "cell") + "</dd></div>" +
+        "<div><dt>Clickable targets</dt><dd>" + escapeHtml(((round.targeting && round.targeting.clickableIndices) || []).length) + " clickable · " + escapeHtml(((round.targeting && round.targeting.disabledIndices) || []).length) + " disabled</dd></div>" +
+        "<div><dt>Broad target</dt><dd>" + escapeHtml(targetSummary(round)) + "</dd></div>" +
         "<div><dt>Evidence</dt><dd>" + escapeHtml(round.evidence) + "</dd></div>" +
         extraMeta(type, round) +
         "<div><dt>Answer</dt><dd class=\"lab-answer-text\">Hidden</dd></div>" +
@@ -133,6 +150,10 @@
   }
 
   function extraMeta(type, round) {
+    if (type.id === "logic-gate-row") {
+      return "<div><dt>Logic target</dt><dd>Output-only sample; inputs, gate, and equals are disabled.</dd></div>";
+    }
+
     if (type.id === "chess-attack") {
       var pieces = round.board.filter(function (cell) {
         return cell.value && cell.value.piece;
@@ -168,6 +189,20 @@
     }
 
     return "";
+  }
+
+  function targetSummary(round) {
+    var targeting = round.targeting || {};
+
+    if (targeting.acceptsAnyCellInAnswerRow) {
+      return "Any cell in row " + (targeting.answerRow + 1) + " is accepted.";
+    }
+    if (targeting.acceptsAnyCellInAnswerColumn) {
+      return "Any cell in column " + (targeting.answerColumn + 1) + " is accepted.";
+    }
+    return "Answer cells: " + getAnswerIndices(round).map(function (index) {
+      return index + 1;
+    }).join(", ");
   }
 
   function renderBoard(container, board) {

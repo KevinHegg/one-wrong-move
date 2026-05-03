@@ -14,6 +14,10 @@
     MULTI_SELECT: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.multiSelect) || "multiSelect",
     TWO_STEP: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.twoStep) || "twoStep"
   };
+  var MODES = {
+    LADDER: "ladder",
+    FREEPLAY: "freeplay"
+  };
 
   var grid = document.getElementById("grid");
   var gameArea = document.getElementById("gameArea");
@@ -46,6 +50,7 @@
   var scoreText = document.getElementById("scoreText");
   var sharePreview = document.getElementById("sharePreview");
   var startButton = document.getElementById("startButton");
+  var freePlayButton = document.getElementById("freePlayButton");
   var submitButton = document.getElementById("submitButton");
   var clearSelectionButton = document.getElementById("clearSelectionButton");
   var shareButton = document.getElementById("shareButton");
@@ -59,15 +64,18 @@
   var sessionAttempt = getStoredAttempt();
   var usedBreakSignatures = getStoredSignatures();
   var levelLimitSeconds = Config.levelTimeLimitSeconds || 60;
+  var freePlayLevelLimitSeconds = Config.freePlayLevelTimeLimitSeconds || 0;
   var lowTimeWarningSeconds = Config.lowTimeWarningSeconds || 10;
   var maxGeneratedLevels = Config.maxGeneratedLevels || 100;
-  var run = createRun(sessionAttempt);
+  var currentMode = initialMode();
+  var run = createRun(sessionAttempt, currentMode);
   var signaturesRemembered = false;
   var timerId = null;
   var state = createFreshState("intro");
 
   puzzleText.textContent = "Puzzle #" + padNumber(puzzleNumber, 3);
   startButton.addEventListener("click", handlePrimaryAction);
+  freePlayButton.addEventListener("click", startFreePlayFromIntro);
   submitButton.addEventListener("click", handleCommitMove);
   clearSelectionButton.addEventListener("click", clearSelection);
   restartButton.addEventListener("click", startVariantRun);
@@ -76,7 +84,10 @@
 
   renderIntro();
 
-  function createRun(attempt) {
+  function createRun(attempt, mode) {
+    if (mode === MODES.FREEPLAY) {
+      return Puzzles.generateFreePlaySet(todayKey, attempt, attempt > 1 ? usedBreakSignatures : []);
+    }
     return Puzzles.generateSurvivalLevels(todayKey, attempt, attempt > 1 ? usedBreakSignatures : [], maxGeneratedLevels);
   }
 
@@ -91,6 +102,7 @@
       levelStartedAt: 0,
       endReason: "",
       endedOnLevel: 1,
+      mistakes: 0,
       selectedIndices: [],
       selectedSteps: {},
       wrongIndices: []
@@ -99,6 +111,8 @@
 
   function handlePrimaryAction() {
     if (state.phase === "intro") {
+      currentMode = MODES.LADDER;
+      run = createRun(sessionAttempt, currentMode);
       rememberCurrentBreakSignatures();
       enterBriefing(0);
       return;
@@ -110,8 +124,22 @@
     }
 
     if (state.phase === "feedback") {
+      if (currentMode === MODES.FREEPLAY && state.levelIndex >= run.levels.length - 1) {
+        showFreePlayComplete();
+        return;
+      }
       enterBriefing(state.levelIndex + 1);
     }
+  }
+
+  function startFreePlayFromIntro() {
+    if (state.phase !== "intro") {
+      return;
+    }
+    currentMode = MODES.FREEPLAY;
+    run = createRun(sessionAttempt, currentMode);
+    rememberCurrentBreakSignatures();
+    enterBriefing(0);
   }
 
   function startVariantRun() {
@@ -119,7 +147,7 @@
     sessionAttempt += 1;
     window.sessionStorage.setItem(attemptKey, String(sessionAttempt));
     usedBreakSignatures = getStoredSignatures();
-    run = createRun(sessionAttempt);
+    run = createRun(sessionAttempt, currentMode);
     signaturesRemembered = false;
     state = createFreshState("intro");
     renderIntro();
@@ -153,13 +181,13 @@
     hideBoard("The board stays hidden until you start a level.");
     updateVariantLabel();
     roundText.textContent = "Ready";
-    mistakeText.textContent = "Lives 1";
+    mistakeText.textContent = currentMode === MODES.FREEPLAY ? "Mistakes 0" : "Lives 1";
     timerText.textContent = formatClock(0);
-    levelTimerText.textContent = levelLimitSeconds + "s";
+    levelTimerText.textContent = currentMode === MODES.FREEPLAY && !freePlayLevelLimitSeconds ? "—" : activeLevelLimitSeconds() + "s";
     levelTimerBox.classList.remove("is-low-time");
-    roundName.textContent = sessionAttempt > 1 ? "Variant survival run" : "Daily survival run";
-    ruleText.textContent = "One board. One rule. One move. Survive until your first wrong move.";
-    instructionText.textContent = "Solve as many levels as you can. One wrong move or an expired " + levelLimitSeconds + "s level timer ends the run.";
+    roundName.textContent = "Mode choice";
+    ruleText.textContent = "One board. One rule. One wrong move.";
+    instructionText.textContent = "Ladder Run ends on your first wrong committed move. Three-Set Free Play lets you solve three puzzles with mistake penalties.";
     updateButtons();
   }
 
@@ -214,13 +242,17 @@
   }
 
   function handleSingleAnswerTap(index, level) {
-    var answers = getAnswerIndices(level);
+    var answers = getAcceptedAnswerIndices(level);
 
     if (answers.indexOf(index) !== -1) {
-      completeLevel(level, answers);
+      completeLevel(level, getAnswerIndices(level));
       return;
     }
 
+    if (currentMode === MODES.FREEPLAY) {
+      recordFreePlayMistake([index], level.wrongTapHint || "That move does not satisfy the rule.");
+      return;
+    }
     endRun("wrong-move", [index], "Wrong move", level.wrongTapHint || "That move does not satisfy the rule.");
   }
 
@@ -279,6 +311,10 @@
       if (sameSet(state.selectedIndices, answers)) {
         completeLevel(level, answers);
       } else {
+        if (currentMode === MODES.FREEPLAY) {
+          recordFreePlayMistake(state.selectedIndices.slice(), level.wrongTapHint || "That submitted set is not exact.");
+          return;
+        }
         endRun("wrong-move", state.selectedIndices.slice(), "Wrong move", level.wrongTapHint || "That submitted set is not exact.");
       }
       return;
@@ -288,9 +324,22 @@
       if (twoStepIsCorrect(level)) {
         completeLevel(level, answers);
       } else {
+        if (currentMode === MODES.FREEPLAY) {
+          recordFreePlayMistake(state.selectedIndices.slice(), level.wrongTapHint || "That two-step move is not the unique solution.");
+          return;
+        }
         endRun("wrong-move", state.selectedIndices.slice(), "Wrong move", level.wrongTapHint || "That two-step move is not the unique solution.");
       }
     }
+  }
+
+  function recordFreePlayMistake(wrongIndices, message) {
+    state.mistakes += 1;
+    state.wrongIndices = wrongIndices || [];
+    showFeedback("Try again", message, "warning");
+    renderLevel(currentLevel(), { wrongIndices: state.wrongIndices });
+    updateHeader(currentLevel());
+    updateButtons();
   }
 
   function twoStepIsCorrect(level) {
@@ -311,6 +360,35 @@
     });
     updateHeader(level);
     updateButtons();
+  }
+
+  function showFreePlayComplete() {
+    pauseTimers();
+    state.phase = "complete";
+    state.endReason = "freeplay-complete";
+    state.endedOnLevel = run.levels.length;
+    hideFeedback();
+    showFreePlayResults();
+    updateButtons();
+  }
+
+  function showFreePlayResults() {
+    var score = Scoring.calculateScore(getElapsedMs(), state.mistakes, 10);
+
+    roundText.textContent = "Complete";
+    mistakeText.textContent = "Mistakes " + state.mistakes;
+    roundName.textContent = "Three-Set Free Play complete";
+    ruleText.textContent = "Solved 3 of 3";
+    instructionText.textContent = "Lower is better: rounded-up solving time plus 10 seconds per mistake.";
+    solvedText.textContent = "3 of 3";
+    finalTimeText.textContent = formatClock(getElapsedMs());
+    baseScoreText.textContent = score.baseSeconds + "s";
+    scoreText.textContent = score.scoreSeconds + "s";
+    finalMistakeText.textContent = String(state.mistakes);
+    penaltyText.textContent = state.mistakes + " × 10s = +" + score.mistakePenaltySeconds + "s";
+    scoreFormulaText.textContent = "Lower is better";
+    sharePreview.value = buildFreePlayShareText(score);
+    resultPanel.hidden = false;
   }
 
   function endRun(endReason, wrongIndices, title, message) {
@@ -380,6 +458,7 @@
     renderCells(level.cells, {
       disabled: state.phase !== "active",
       answerMode: level.answerMode,
+      targeting: level.targeting,
       correctIndices: markers.correctIndices || [],
       wrongIndices: markers.wrongIndices || state.wrongIndices || [],
       selectedIndices: state.phase === "feedback" ? [] : state.selectedIndices || [],
@@ -392,6 +471,7 @@
     options.correctIndices = options.correctIndices || [];
     options.wrongIndices = options.wrongIndices || [];
     options.selectedIndices = options.selectedIndices || [];
+    options.targeting = options.targeting || {};
     grid.innerHTML = "";
     grid.setAttribute("aria-disabled", options.disabled ? "true" : "false");
 
@@ -405,6 +485,10 @@
       cell.className = getCellClassName(cellData, index, options);
       cell.dataset.index = String(index);
       cell.disabled = Boolean(options.disabled || !isSelectable);
+      if (!isSelectable) {
+        cell.setAttribute("aria-disabled", "true");
+        cell.tabIndex = -1;
+      }
       renderCellContents(cell, cellData);
       cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column, options));
 
@@ -470,6 +554,9 @@
     if (options.relatedIndexes.indexOf(index) !== -1) {
       classNames.push("is-related");
     }
+    if (cellData.selectable === false || cellData.interactive === false) {
+      classNames.push("is-disabled-target");
+    }
     return classNames.join(" ");
   }
 
@@ -481,33 +568,50 @@
   }
 
   function updateHeader(level) {
-    roundText.textContent = "Level " + (state.levelIndex + 1);
+    roundText.textContent = currentMode === MODES.FREEPLAY ? "Puzzle " + (state.levelIndex + 1) + " of 3" : "Level " + (state.levelIndex + 1);
     roundName.textContent = level.title + " · " + level.sourceWorld;
     ruleText.textContent = state.phase === "briefing" ? level.briefingText : level.rule;
     instructionText.textContent = state.phase === "briefing" ? getBriefingInstruction(level) : getActiveInstruction(level);
-    mistakeText.textContent = state.phase === "complete" ? "Wrong Moves " + state.wrongMoves + "/1" : "Lives 1";
+    mistakeText.textContent = currentMode === MODES.FREEPLAY ? "Mistakes " + state.mistakes : state.phase === "complete" ? "Wrong Moves " + state.wrongMoves + "/1" : "Lives 1";
     updateVariantLabel();
     updateTimerDisplay();
   }
 
   function getBriefingInstruction(level) {
-    return answerModeLabel(level.answerMode) + ". Timer and countdown are paused until Start Level.";
+    return answerModeLabel(level) + ". Timer and countdown are paused until " + (currentMode === MODES.FREEPLAY ? "Start Puzzle." : "Start Level.");
   }
 
   function getActiveInstruction(level) {
+    var suffix = currentMode === MODES.FREEPLAY ? " A wrong attempt adds a mistake; keep solving." : " One wrong move ends the run.";
+
+    if (level.targeting && level.targeting.targetHint) {
+      return level.targeting.targetHint + suffix;
+    }
     if (level.answerMode === ANSWER_MODES.CHOOSE_ONE) {
-      return "Choose the best move. One wrong move ends the run.";
+      return "Choose the best move." + suffix;
     }
     if (level.answerMode === ANSWER_MODES.MULTI_SELECT) {
-      return "Plan by selecting squares, then commit. A wrong submission ends the run.";
+      return "Plan by selecting squares, then commit." + suffix;
     }
     if (level.answerMode === ANSWER_MODES.TWO_STEP) {
-      return "Choose both parts of the move, then commit. A wrong submission ends the run.";
+      return "Choose both parts of the move, then commit." + suffix;
     }
-    return "Tap the one move that breaks the rule. One wrong move ends the run.";
+    return "Tap the one move that breaks the rule." + suffix;
   }
 
-  function answerModeLabel(answerMode) {
+  function answerModeLabel(level) {
+    var answerMode = typeof level === "string" ? level : level.answerMode;
+    var targeting = typeof level === "string" ? null : level.targeting;
+
+    if (targeting && targeting.targetType === "row") {
+      return "Tap any cell in the broken row";
+    }
+    if (targeting && targeting.targetType === "column") {
+      return "Tap any cell in the broken column";
+    }
+    if (targeting && targeting.targetType === "outputCell") {
+      return "Tap the wrong output";
+    }
     if (answerMode === ANSWER_MODES.CHOOSE_ONE) {
       return "Choose one best move";
     }
@@ -521,7 +625,8 @@
   }
 
   function updateVariantLabel() {
-    variantText.textContent = sessionAttempt > 1 ? "Variant " + sessionAttempt : "Survival Run";
+    var label = currentMode === MODES.FREEPLAY ? "Free Play" : "Ladder Run";
+    variantText.textContent = sessionAttempt > 1 ? label + " · Variant " + sessionAttempt : label;
   }
 
   function updateButtons() {
@@ -532,6 +637,7 @@
     startButton.hidden = true;
     submitButton.hidden = true;
     clearSelectionButton.hidden = true;
+    freePlayButton.hidden = true;
     shareButton.hidden = true;
     playMixButton.hidden = true;
     restartButton.hidden = true;
@@ -540,13 +646,15 @@
 
     if (state.phase === "intro") {
       startButton.hidden = false;
-      startButton.textContent = "Start Survival Run";
+      startButton.textContent = "Start Ladder Run";
+      freePlayButton.hidden = false;
+      freePlayButton.textContent = "Three-Set Free Play";
       return;
     }
 
     if (state.phase === "briefing") {
       startButton.hidden = false;
-      startButton.textContent = "Start Level";
+      startButton.textContent = currentMode === MODES.FREEPLAY ? "Start Puzzle" : "Start Level";
       restartButton.hidden = false;
       return;
     }
@@ -565,7 +673,7 @@
 
     if (state.phase === "feedback") {
       startButton.hidden = false;
-      startButton.textContent = "Next Level";
+      startButton.textContent = currentMode === MODES.FREEPLAY && state.levelIndex >= run.levels.length - 1 ? "See Results" : currentMode === MODES.FREEPLAY ? "Next Puzzle" : "Next Level";
       restartButton.hidden = false;
       return;
     }
@@ -651,11 +759,16 @@
     var levelRemaining = getLevelRemainingMs();
 
     timerText.textContent = formatClock(totalMs);
-    levelTimerText.textContent = Math.max(0, Math.ceil(levelRemaining / 1000)) + "s";
-    levelTimerBox.classList.toggle("is-low-time", state.phase === "active" && levelRemaining <= lowTimeWarningSeconds * 1000);
+    levelTimerText.textContent = activeLevelLimitSeconds() ? Math.max(0, Math.ceil(levelRemaining / 1000)) + "s" : "—";
+    levelTimerBox.classList.toggle("is-low-time", state.phase === "active" && activeLevelLimitSeconds() > 0 && levelRemaining <= lowTimeWarningSeconds * 1000);
 
-    if (state.phase === "active" && levelRemaining <= 0) {
-      endRun("time-expired", [], "Run ended", "Time expired on this level.");
+    if (state.phase === "active" && activeLevelLimitSeconds() > 0 && levelRemaining <= 0) {
+      if (currentMode === MODES.FREEPLAY) {
+        recordFreePlayMistake([], "Time expired. That counts as a mistake here, but Free Play continues.");
+        state.levelStartedAt = performance.now();
+      } else {
+        endRun("time-expired", [], "Run ended", "Time expired on this level.");
+      }
     }
   }
 
@@ -667,10 +780,19 @@
   }
 
   function getLevelRemainingMs() {
-    if (!state.levelStartedAt) {
-      return levelLimitSeconds * 1000;
+    var limit = activeLevelLimitSeconds();
+
+    if (!limit) {
+      return 0;
     }
-    return levelLimitSeconds * 1000 - (performance.now() - state.levelStartedAt);
+    if (!state.levelStartedAt) {
+      return limit * 1000;
+    }
+    return limit * 1000 - (performance.now() - state.levelStartedAt);
+  }
+
+  function activeLevelLimitSeconds() {
+    return currentMode === MODES.FREEPLAY ? freePlayLevelLimitSeconds : levelLimitSeconds;
   }
 
   function formatClock(milliseconds) {
@@ -682,7 +804,7 @@
   }
 
   function shareResult() {
-    var text = sharePreview.value || buildShareText(survivalScore());
+    var text = sharePreview.value || (currentMode === MODES.FREEPLAY ? buildFreePlayShareText(Scoring.calculateScore(getElapsedMs(), state.mistakes, 10)) : buildShareText(survivalScore()));
 
     sharePreview.value = text;
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -714,7 +836,7 @@
   function buildShareText(score) {
     var lines = [
       "One Wrong Move #" + padNumber(puzzleNumber, 3),
-      "Survival Run",
+      "Ladder Run",
       score.levelsCompleted + " levels in " + formatClock(score.totalActiveMs),
       "Ended: " + endReasonShareLabel(score.endReason) + " on Level " + score.endedOnLevel,
       "Limit: " + levelLimitSeconds + "s/level"
@@ -735,12 +857,48 @@
     return lines.join("\n");
   }
 
+  function buildFreePlayShareText(score) {
+    var lines = [
+      "One Wrong Move #" + padNumber(puzzleNumber, 3),
+      "Three-Set Free Play",
+      "Score: " + score.scoreSeconds + "s",
+      "Base: " + score.baseSeconds + "s",
+      "Mistakes: " + state.mistakes + " × 10s = +" + score.mistakePenaltySeconds + "s",
+      "✅✅✅",
+      ""
+    ];
+
+    run.levels.forEach(function (level, index) {
+      lines.push("Puzzle " + (index + 1) + ": " + level.name);
+    });
+    if (sessionAttempt > 1) {
+      lines.push("", "Variant " + sessionAttempt);
+    }
+    return lines.join("\n");
+  }
+
   function currentLevel() {
     return run.levels[state.levelIndex];
   }
 
+  function getAcceptedAnswerIndices(level) {
+    if (level.targeting && Array.isArray(level.targeting.answerIndices) && level.targeting.answerIndices.length > 0) {
+      return level.targeting.answerIndices.slice().sort(sortNumbers);
+    }
+    return getAnswerIndices(level);
+  }
+
   function survivalScore() {
     return Scoring.calculateSurvivalScore(state.levelsCompleted, getElapsedMs(), state.endedOnLevel || state.levelIndex + 1, state.endReason || "wrong-move");
+  }
+
+  function initialMode() {
+    try {
+      var mode = new URLSearchParams(window.location.search).get("mode");
+      return mode === MODES.FREEPLAY ? MODES.FREEPLAY : MODES.LADDER;
+    } catch (error) {
+      return MODES.LADDER;
+    }
   }
 
   function resetSelections() {
@@ -814,6 +972,7 @@
         dateKey: todayKey,
         puzzleNumber: puzzleNumber,
         sessionAttempt: sessionAttempt,
+        mode: currentMode,
         phase: state.phase,
         levelIndex: state.levelIndex,
         levelNumber: state.levelIndex + 1,
@@ -826,10 +985,13 @@
         breakSignature: level ? level.breakSignature : null,
         levelsCompleted: state.levelsCompleted,
         wrongMoves: state.wrongMoves,
+        mistakes: state.mistakes,
         endReason: state.endReason,
         elapsedMs: getElapsedMs(),
         levelRemainingMs: getLevelRemainingMs(),
-        score: survivalScore(),
+        score: currentMode === MODES.FREEPLAY
+          ? Scoring.calculateScore(getElapsedMs(), state.mistakes, 10)
+          : survivalScore(),
         timerRunning: Boolean(timerId),
         boardVisible: !gameArea.hidden,
         validation: Puzzles.validatePuzzle(run),
@@ -837,7 +999,8 @@
         levelNames: run.levels.map(function (item) { return item.name; }),
         answerModes: run.levels.map(function (item) { return item.answerMode; }),
         sourceWorlds: run.levels.map(function (item) { return item.sourceWorld; }),
-        breakSignatures: run.levels.map(function (item) { return item.breakSignature; })
+        breakSignatures: run.levels.map(function (item) { return item.breakSignature; }),
+        targeting: level ? level.targeting : null
       };
     }
   };
