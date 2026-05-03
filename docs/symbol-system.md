@@ -58,7 +58,9 @@ The renderer uses the glyph as the main visual and the label for chips, compact 
 
 ## Packs
 
-Production packs include ecology, food and ingredients, kitchen tools, animals by habitat, plants/fruits/vegetables, music, weather/space, sports/games, workshop tools, household objects, relationship pairs, cards, chess, dice, dominoes, Go, logic, and maze labels.
+Production packs include ecology, food and ingredients, kitchen tools, animals by habitat, plants/fruits/vegetables, music, weather/space, sports/games, workshop tools, household objects, relationship pairs, cards, chess, dice, dominoes, Go, logic, Sudoku digits, Minesweeper clues/flags/mines, and maze labels.
+
+Sudoku symbols are plain digits with accessible labels such as "Sudoku digit 3." Minesweeper symbols include hidden squares, flags, bombs for answer reveal, and clue numbers. Active Minesweeper boards show hidden candidates and clue numbers; bombs are not shown until feedback or lab answer reveal.
 
 Theme packs group symbols into fair category rows:
 

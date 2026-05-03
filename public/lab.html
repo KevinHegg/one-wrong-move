@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>One Wrong Move Puzzle Lab</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css?v=011">
-    <script src="config.js?v=011" defer></script>
-    <script src="symbols.js?v=011" defer></script>
-    <script src="scoring.js?v=011" defer></script>
-    <script src="puzzles.js?v=011" defer></script>
-    <script src="lab.js?v=011" defer></script>
+    <link rel="stylesheet" href="style.css?v=013">
+    <script src="config.js?v=013" defer></script>
+    <script src="symbols.js?v=013" defer></script>
+    <script src="scoring.js?v=013" defer></script>
+    <script src="puzzles.js?v=013" defer></script>
+    <script src="lab.js?v=013" defer></script>
   </head>
   <body class="lab-page">
     <main class="lab-shell" aria-label="One Wrong Move puzzle lab">
@@ -34,6 +34,16 @@
         <label>
           <span>Level limit</span>
           <input id="labLimit" type="number" min="15" max="180" value="60">
+        </label>
+        <label>
+          <span>Filter</span>
+          <select id="labFilter">
+            <option value="">All puzzles</option>
+            <option value="sudoku">Sudoku</option>
+            <option value="minesweeper">Minesweeper</option>
+            <option value="number">Number logic</option>
+            <option value="multi">Multi-select</option>
+          </select>
         </label>
         <button id="labRegenerate" class="primary-button" type="button">Regenerate</button>
       </section>

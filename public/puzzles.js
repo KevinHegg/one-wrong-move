@@ -35,6 +35,8 @@
   var GO = S.go;
   var LOGIC = S.logic;
   var DICE = S.dice;
+  var SUDOKU = S.sudoku || [];
+  var MINESWEEPER = S.minesweeper || [];
   var DIRECTIONS = S.directions;
   var ANIMALS = S.animals;
   var FOOD = S.food;
@@ -176,6 +178,65 @@
       example: example(5, "2 + 3 + 1 = 6.", ["2", "3", "1", "=", "6"]),
       generate: generateDiceSum,
       validator: validateExpectedMismatch
+    }),
+    type({
+      id: "sudoku-conflict",
+      name: "Sudoku Conflict",
+      sourceWorld: "Sudoku",
+      difficulty: 2,
+      answerMode: ANSWER_MODES.identifyOne,
+      cognitiveSkill: "row-column-box constraints",
+      isNumberGridPuzzle: true,
+      symbols: sudokuSymbols(),
+      briefing: "A mini-Sudoku uses the four small digits. Each row, column, and box needs every digit once. Tap the wrong digit.",
+      example: example(4, "Rows, columns, and 2x2 boxes each need 1, 2, 3, and 4.", ["1", "2", "3", "4"]),
+      generate: generateSudokuConflict,
+      validator: validateSudokuConflict
+    }),
+    type({
+      id: "mini-sudoku-swap",
+      name: "Mini Sudoku Swap",
+      sourceWorld: "Sudoku",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "constraint repair",
+      isNumberGridPuzzle: true,
+      minSurvivalLevel: 4,
+      symbols: sudokuSymbols(),
+      briefing: "A mini-Sudoku uses the four small digits. Two digits were swapped. Select both swapped cells, then submit.",
+      example: example(4, "A swap can break rows, columns, and 2x2 boxes at once.", ["1", "2", "4", "3"]),
+      generate: generateMiniSudokuSwap,
+      validator: validateMiniSudokuSwap
+    }),
+    type({
+      id: "minesweeper-forced-mine",
+      name: "Minesweeper Forced Mine",
+      sourceWorld: "Minesweeper",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.chooseOne,
+      cognitiveSkill: "constraint inference",
+      isNumberGridPuzzle: true,
+      minSurvivalLevel: 4,
+      symbols: minesweeperSymbols(),
+      briefing: "Number clues count mines in the eight surrounding cells. Tap the one hidden square that must be a mine.",
+      example: example(5, "A clue of 1 with only one hidden neighbor forces that hidden square.", ["1", "□", "0", "□", "□"]),
+      generate: generateMinesweeperForcedMine,
+      validator: validateMinesweeperForcedMine
+    }),
+    type({
+      id: "minesweeper-mark-all",
+      name: "Minesweeper Mark All",
+      sourceWorld: "Minesweeper",
+      difficulty: 4,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "complete minefield deduction",
+      isNumberGridPuzzle: true,
+      minSurvivalLevel: 9,
+      symbols: minesweeperSymbols(),
+      briefing: "Number clues count nearby mines. Select every mine, then submit.",
+      example: example(5, "Clues count all eight neighboring cells; flags are your planned mines.", ["1", "□", "2", "□", "⚑"]),
+      generate: generateMinesweeperMarkAll,
+      validator: validateMinesweeperMarkAll
     }),
     type({
       id: "dish-ingredient-imposter",
@@ -531,6 +592,8 @@
       cognitiveSkill: config.cognitiveSkill,
       isAbstractGlyphPuzzle: Boolean(config.isAbstractGlyphPuzzle),
       isMovementPuzzle: Boolean(config.isMovementPuzzle),
+      isNumberGridPuzzle: Boolean(config.isNumberGridPuzzle),
+      minSurvivalLevel: config.minSurvivalLevel || 1,
       retired: Boolean(config.retired),
       retiredReason: config.retiredReason || "",
       symbols: config.symbols.map(symbolLabel),
@@ -625,7 +688,7 @@
     for (var level = 1; level <= count; level += 1) {
       var range = level <= 3 ? [1, 2] : level <= 8 ? [2, 3] : [3, 4, 5];
       var candidates = activeTypes.filter(function (candidate) {
-        return range.indexOf(candidate.difficulty) !== -1;
+        return range.indexOf(candidate.difficulty) !== -1 && level >= candidate.minSurvivalLevel;
       });
       var previous = selected[selected.length - 1];
 
@@ -651,6 +714,16 @@
         candidates = prefer(candidates, function (candidate) {
           return !(candidate.sourceWorld === "Food" && previous.sourceWorld === "Food");
         });
+        candidates = prefer(candidates, function (candidate) {
+          return !(candidate.isNumberGridPuzzle && previous.isNumberGridPuzzle);
+        });
+        if (level <= 8) {
+          candidates = prefer(candidates, function (candidate) {
+            return !(candidate.isNumberGridPuzzle && previous.isNumberGridPuzzle) &&
+              !(candidate.sourceWorld === "Sudoku" && previous.sourceWorld === "Minesweeper") &&
+              !(candidate.sourceWorld === "Minesweeper" && previous.sourceWorld === "Sudoku");
+          });
+        }
       }
 
       if (level <= 3 && !selected.some(function (candidate) { return candidate.sourceWorld !== "Symbol Grammar"; })) {
@@ -671,26 +744,41 @@
     });
     var selected = [];
     var preferredFirst = prefer(activeTypes, function (candidate) {
-      return ["object-row-imposter", "dish-ingredient-imposter", "domino-chain", "dice-sum", "suit-cycle", "pair-pact", "maze-exit"].indexOf(candidate.id) !== -1;
+      return ["object-row-imposter", "dish-ingredient-imposter", "domino-chain", "dice-sum", "sudoku-conflict", "suit-cycle", "pair-pact", "maze-exit"].indexOf(candidate.id) !== -1;
     });
     selected.push(shuffle(preferredFirst, random)[0]);
 
-    var multiOrWord = prefer(activeTypes.filter(function (candidate) {
+    var multiOrWordCandidates = activeTypes.filter(function (candidate) {
       return selected.every(function (chosen) { return chosen.id !== candidate.id; });
-    }), function (candidate) {
-      return candidate.answerMode === ANSWER_MODES.multiSelect || candidate.answerMode === ANSWER_MODES.twoStep || candidate.sourceWorld === "Crossword" || candidate.sourceWorld === "Words";
+    });
+    if (selected.some(function (chosen) { return chosen.isNumberGridPuzzle; })) {
+      multiOrWordCandidates = prefer(multiOrWordCandidates, function (candidate) {
+        return !candidate.isNumberGridPuzzle;
+      });
+    }
+    var multiOrWord = prefer(multiOrWordCandidates, function (candidate) {
+      return candidate.id === "mini-sudoku-swap" || candidate.answerMode === ANSWER_MODES.multiSelect || candidate.answerMode === ANSWER_MODES.twoStep || candidate.sourceWorld === "Crossword" || candidate.sourceWorld === "Words";
     });
     selected.push(shuffle(multiOrWord, random)[0]);
 
     var remaining = activeTypes.filter(function (candidate) {
       return selected.every(function (chosen) {
         return chosen.id !== candidate.id && chosen.sourceWorld !== candidate.sourceWorld;
+      }) && selected.every(function (chosen) {
+        return !(candidate.isNumberGridPuzzle && chosen.isNumberGridPuzzle);
       });
     });
     if (remaining.length === 0) {
       remaining = activeTypes.filter(function (candidate) {
-        return selected.every(function (chosen) { return chosen.id !== candidate.id; });
+        return selected.every(function (chosen) {
+          return chosen.id !== candidate.id;
+        });
       });
+      if (selected.some(function (chosen) { return chosen.isNumberGridPuzzle; })) {
+        remaining = prefer(remaining, function (candidate) {
+          return !candidate.isNumberGridPuzzle;
+        });
+      }
     }
     selected.push(shuffle(remaining, random)[0]);
     return selected;
@@ -712,17 +800,17 @@
 
       if (roundIndex === 0) {
         candidates = prefer(candidates, function (candidate) {
-          return ["object-row-imposter", "dish-ingredient-imposter", "suit-cycle", "domino-chain", "dice-sum", "pair-pact"].indexOf(candidate.id) !== -1;
+      return ["object-row-imposter", "dish-ingredient-imposter", "suit-cycle", "domino-chain", "dice-sum", "sudoku-conflict", "pair-pact"].indexOf(candidate.id) !== -1;
         });
       }
       if (roundIndex === 1) {
         candidates = prefer(candidates, function (candidate) {
-          return ["category-swap", "recipe-swap", "object-rack-complete", "card-straight", "logic-gate-row", "mirror-trap", "chess-attack"].indexOf(candidate.id) !== -1;
+          return ["category-swap", "recipe-swap", "object-rack-complete", "mini-sudoku-swap", "card-straight", "logic-gate-row", "mirror-trap", "chess-attack"].indexOf(candidate.id) !== -1;
         });
       }
       if (roundIndex === 2) {
         candidates = prefer(candidates, function (candidate) {
-          return ["go-capture-max", "go-liberties", "poker-hand-trap", "train-route", "chess-attack"].indexOf(candidate.id) !== -1;
+          return ["go-capture-max", "go-liberties", "minesweeper-forced-mine", "minesweeper-mark-all", "poker-hand-trap", "train-route", "chess-attack"].indexOf(candidate.id) !== -1;
         });
       }
 
@@ -749,6 +837,11 @@
       candidates = prefer(candidates, function (candidate) {
         return !candidate.isAbstractGlyphPuzzle || selected.every(function (chosen) {
           return !chosen.isAbstractGlyphPuzzle;
+        });
+      });
+      candidates = prefer(candidates, function (candidate) {
+        return !candidate.isNumberGridPuzzle || selected.every(function (chosen) {
+          return !chosen.isNumberGridPuzzle;
         });
       });
 
@@ -778,6 +871,8 @@
     normalized.difficulty = selectedType.difficulty;
     normalized.answerMode = answerMode;
     normalized.cognitiveSkill = selectedType.cognitiveSkill;
+    normalized.isNumberGridPuzzle = selectedType.isNumberGridPuzzle;
+    normalized.columns = round.columns || round.gridSize || GRID_SIZE;
     normalized.roundNumber = roundNumber;
     normalized.symbols = selectedType.symbols.slice();
     normalized.symbolBank = selectedType.symbolBank ? selectedType.symbolBank.slice() : normalized.symbols.slice();
@@ -804,6 +899,8 @@
     normalized.minSelections = round.minSelections || (answerMode === ANSWER_MODES.multiSelect ? normalized.answerIndices.length : 1);
     normalized.maxSelections = round.maxSelections || (answerMode === ANSWER_MODES.multiSelect ? normalized.answerIndices.length : answerMode === ANSWER_MODES.twoStep ? normalized.answerSteps.length : 1);
     normalized.submitLabel = round.submitLabel || (answerMode === ANSWER_MODES.multiSelect || answerMode === ANSWER_MODES.twoStep ? "Submit Move" : "");
+    normalized.clearLabel = round.clearLabel || "";
+    normalized.answerStyleLabel = round.answerStyleLabel || "";
     normalized.instruction = round.instruction || instructionForMode(answerMode);
     normalized.hint = round.wrongTapHint;
     normalized.targeting = normalizeTargeting(normalized, round.targeting);
@@ -862,7 +959,7 @@
     }
     targeting.answerIndices = uniqueSorted(targeting.answerIndices);
     targeting.clickableIndices = uniqueSorted(targeting.clickableIndices);
-    targeting.disabledIndices = uniqueSorted(range(CELL_COUNT).filter(function (index) {
+    targeting.disabledIndices = uniqueSorted(range(round.board.length).filter(function (index) {
       return targeting.clickableIndices.indexOf(index) === -1;
     }));
     return targeting;
@@ -1137,6 +1234,207 @@
       round.wrongTapHint = "Only dice can be wrong in this puzzle: add the dice and compare with the total.";
     }
     return round;
+  }
+
+  function generateSudokuConflict(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var solved = makeSudokuSolution(random);
+    var candidates = [];
+
+    range(16).forEach(function (index) {
+      var currentDigit = solved[index];
+      [1, 2, 3, 4].forEach(function (wrongDigit) {
+        var broken = solved.slice();
+        var board;
+        var repairs;
+
+        if (wrongDigit === currentDigit) {
+          return;
+        }
+        broken[index] = wrongDigit;
+        repairs = findSudokuSingleRepairs(broken);
+        if (repairs.length !== 1 || repairs[0].index !== index || repairs[0].digit !== currentDigit) {
+          return;
+        }
+        board = sudokuBoardFromDigits(broken, solved);
+        candidates.push({
+          board: board,
+          expected: sudokuBoardFromDigits(solved, solved),
+          answerIndex: index,
+          breakMode: "wrong-digit",
+          wrongDigit: wrongDigit,
+          correctDigit: currentDigit,
+          breakSignature: makeBreakSignature("sudoku-conflict", "wrong-digit", index, wrongDigit + "->" + currentDigit)
+        });
+      });
+    });
+
+    return sudokuConflictRound(selectCandidate(shuffle(candidates, random), avoidBreakSignatures || []));
+  }
+
+  function sudokuConflictRound(selected) {
+    var point = sudokuPoint(selected.answerIndex);
+
+    return {
+      answerMode: ANSWER_MODES.identifyOne,
+      columns: 4,
+      board: selected.board,
+      expected: selected.expected,
+      answerIndex: selected.answerIndex,
+      answerIndices: [selected.answerIndex],
+      explanation: "That digit is the only one that can be changed to restore every row, column, and 2x2 box.",
+      wrongTapHint: "Check the row, column, and 2x2 box for a repeated or missing digit.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.breakMode,
+      evidence: "Row " + (point.row + 1) + ", column " + (point.col + 1) + ", and box " + (point.box + 1) + " all point to digit " + selected.correctDigit + " here.",
+      relatedIndexes: sudokuRelatedIndexes(selected.answerIndex),
+      targeting: {
+        targetType: TARGET_TYPES.cell,
+        clickableIndices: range(16),
+        answerIndices: [selected.answerIndex],
+        targetHint: "Tap the wrong digit."
+      },
+      sudokuRepairCount: 1
+    };
+  }
+
+  function generateMiniSudokuSwap(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var solved = makeSudokuSolution(random);
+    var candidates = [];
+
+    for (var left = 0; left < 16; left += 1) {
+      for (var right = left + 1; right < 16; right += 1) {
+        var broken = solved.slice();
+        var repairs;
+
+        if (broken[left] === broken[right]) {
+          continue;
+        }
+        swapValues(broken, left, right);
+        repairs = findSudokuSwapRepairs(broken);
+        if (repairs.length !== 1 || !sameSet(repairs[0].indices, [left, right])) {
+          continue;
+        }
+        candidates.push({
+          board: sudokuBoardFromDigits(broken, solved),
+          expected: sudokuBoardFromDigits(solved, solved),
+          answerIndices: uniqueSorted([left, right]),
+          breakMode: "two-digit-swap",
+          breakSignature: makeBreakSignature("mini-sudoku-swap", "two-digit-swap", left + "." + right, broken[left] + "." + broken[right])
+        });
+      }
+    }
+
+    return sudokuSwapRound(selectCandidate(shuffle(candidates, random), avoidBreakSignatures || []));
+  }
+
+  function sudokuSwapRound(selected) {
+    var leftPoint = sudokuPoint(selected.answerIndices[0]);
+    var rightPoint = sudokuPoint(selected.answerIndices[1]);
+
+    return {
+      answerMode: ANSWER_MODES.multiSelect,
+      columns: 4,
+      board: selected.board,
+      expected: selected.expected,
+      answerIndex: selected.answerIndices[0],
+      answerIndices: selected.answerIndices,
+      minSelections: 2,
+      maxSelections: 2,
+      submitLabel: "Submit Swap",
+      clearLabel: "Clear selection",
+      answerStyleLabel: "Select the two swapped digits, then Submit Swap",
+      explanation: "Swapping those two digits restores every row, column, and 2x2 box.",
+      wrongTapHint: "Choose exactly two cells: the pair that should trade digits to make all rows, columns, and boxes valid.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.breakMode,
+      evidence: "The swap repairs row " + (leftPoint.row + 1) + ", column " + (rightPoint.col + 1) + ", and the affected 2x2 boxes.",
+      relatedIndexes: sudokuRelatedIndexes(selected.answerIndices[0]).concat(sudokuRelatedIndexes(selected.answerIndices[1])),
+      targeting: {
+        targetType: TARGET_TYPES.multiSelect,
+        clickableIndices: range(16),
+        answerIndices: selected.answerIndices,
+        targetHint: "Select the two swapped digits, then Submit Swap."
+      },
+      sudokuRepairCount: 1
+    };
+  }
+
+  function generateMinesweeperForcedMine(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var transforms = ["identity", "rotate180", "mirrorH", "mirrorV", "rotate90", "transpose"];
+    var templates = shuffle(minesweeperForcedTemplates().reduce(function (items, template) {
+      return items.concat(transforms.map(function (transform) {
+        return transformMinesweeperTemplate(template, transform);
+      }));
+    }, []), random);
+    var candidates = templates.map(function (template) {
+      var round = minesweeperRoundFromTemplate("minesweeper-forced-mine", template, ANSWER_MODES.chooseOne, "forced-mine");
+      var forced = forcedMineIndexes(enumerateMinesweeperLayouts(round));
+
+      if (forced.length !== 1) {
+        return null;
+      }
+      round.answerIndex = forced[0];
+      round.answerIndices = forced;
+      round.targeting = {
+        targetType: TARGET_TYPES.cell,
+        clickableIndices: hiddenMinesweeperIndices(round.board),
+        answerIndices: forced,
+        targetHint: "Tap the one hidden square that must be a mine."
+      };
+      round.explanation = "Every valid mine layout puts a mine on that hidden square.";
+      round.wrongTapHint = "Use the clue numbers: they count mines in all eight surrounding cells.";
+      round.evidence = "The nearby clue has exactly one hidden neighbor, so that square must contain a mine.";
+      round.breakSignature = makeBreakSignature("minesweeper-forced-mine", "forced-mine", round.answerIndex, "mine-count-" + round.mineCount);
+      round.relatedIndexes = clueNeighborIndexes(round.board, round.answerIndex);
+      round.choiceScores = hiddenMinesweeperIndices(round.board).map(function (index) {
+        return { index: index, forced: forced.indexOf(index) !== -1 };
+      });
+      return round;
+    }).filter(Boolean);
+
+    return selectCandidate(shuffle(candidates, random), avoidBreakSignatures || []);
+  }
+
+  function generateMinesweeperMarkAll(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var transforms = ["identity", "rotate180", "mirrorH", "mirrorV", "rotate90", "transpose"];
+    var templates = shuffle(minesweeperMarkAllTemplates().reduce(function (items, template) {
+      return items.concat(transforms.map(function (transform) {
+        return transformMinesweeperTemplate(template, transform);
+      }));
+    }, []), random);
+    var candidates = templates.map(function (template) {
+      var round = minesweeperRoundFromTemplate("minesweeper-mark-all", template, ANSWER_MODES.multiSelect, "mark-all");
+      var layouts = enumerateMinesweeperLayouts(round);
+
+      if (layouts.length !== 1) {
+        return null;
+      }
+      round.answerIndices = layouts[0].slice();
+      round.answerIndex = round.answerIndices[0];
+      round.minSelections = round.answerIndices.length;
+      round.maxSelections = round.answerIndices.length;
+      round.submitLabel = "Submit Flags";
+      round.clearLabel = "Clear flags";
+      round.answerStyleLabel = "Select every mine, then Submit Flags";
+      round.targeting = {
+        targetType: TARGET_TYPES.multiSelect,
+        clickableIndices: hiddenMinesweeperIndices(round.board),
+        answerIndices: round.answerIndices,
+        targetHint: "Select every mine, then Submit Flags."
+      };
+      round.explanation = "Those flags are the only mine set that satisfies every clue.";
+      round.wrongTapHint = "Every selected flag must agree with all clue numbers around it.";
+      round.evidence = "The clues leave exactly one valid mine layout with " + round.answerIndices.length + " mines.";
+      round.breakSignature = makeBreakSignature("minesweeper-mark-all", "unique-layout", round.answerIndices.join("."), "mines-" + round.mineCount);
+      round.relatedIndexes = clueIndexes(round.board);
+      return round;
+    }).filter(Boolean);
+
+    return selectCandidate(shuffle(candidates, random), avoidBreakSignatures || []);
   }
 
   function generateDishIngredientImposter(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
@@ -2208,6 +2506,354 @@
     ];
   }
 
+  function makeSudokuSolution(random) {
+    var digits = [1, 2, 3, 4];
+    var rows = shuffle([[0, 1], [2, 3]], random).reduce(function (items, band) {
+      return items.concat(shuffle(band, random));
+    }, []);
+    var cols = shuffle([[0, 1], [2, 3]], random).reduce(function (items, stack) {
+      return items.concat(shuffle(stack, random));
+    }, []);
+    var remap = shuffle(digits, random);
+    var base = [
+      [1, 2, 3, 4],
+      [3, 4, 1, 2],
+      [2, 1, 4, 3],
+      [4, 3, 2, 1]
+    ];
+    var solved = [];
+
+    for (var row = 0; row < 4; row += 1) {
+      for (var col = 0; col < 4; col += 1) {
+        solved[row * 4 + col] = remap[base[rows[row]][cols[col]] - 1];
+      }
+    }
+    return solved;
+  }
+
+  function sudokuBoardFromDigits(digits, expectedDigits) {
+    return digits.map(function (digit, index) {
+      var expectedDigit = expectedDigits[index];
+      var cell = sudokuCell(index, digit, expectedDigit);
+
+      cell.expectedGlyph = String(expectedDigit);
+      cell.expectedValue = sudokuValue(index, expectedDigit);
+      return cell;
+    });
+  }
+
+  function sudokuCell(index, digit, expectedDigit) {
+    var point = sudokuPoint(index);
+    var classes = ["token-sudoku", "sudoku-box-" + point.box];
+
+    if (point.row % 2 === 0) classes.push("sudoku-box-top");
+    if (point.row % 2 === 1) classes.push("sudoku-box-bottom");
+    if (point.col % 2 === 0) classes.push("sudoku-box-left");
+    if (point.col % 2 === 1) classes.push("sudoku-box-right");
+    return glyphCell(index, String(digit), "sudoku", "Sudoku row " + (point.row + 1) + " column " + (point.col + 1) + " digit " + digit, classes, sudokuValue(index, digit));
+  }
+
+  function sudokuValue(index, digit) {
+    var point = sudokuPoint(index);
+
+    return {
+      sudoku: true,
+      digit: digit,
+      sudokuRow: point.row,
+      sudokuCol: point.col,
+      box: point.box
+    };
+  }
+
+  function sudokuPoint(index) {
+    var row = Math.floor(index / 4);
+    var col = index % 4;
+
+    return {
+      row: row,
+      col: col,
+      box: Math.floor(row / 2) * 2 + Math.floor(col / 2)
+    };
+  }
+
+  function sudokuRelatedIndexes(index) {
+    var point = sudokuPoint(index);
+    var related = [];
+
+    range(16).forEach(function (candidate) {
+      var other = sudokuPoint(candidate);
+
+      if (candidate !== index && (other.row === point.row || other.col === point.col || other.box === point.box)) {
+        related.push(candidate);
+      }
+    });
+    return related;
+  }
+
+  function sudokuDigitsFromBoard(board) {
+    return board.map(function (cell) {
+      return cell.value && cell.value.sudoku ? Number(cell.value.digit) : Number(cell.glyph);
+    });
+  }
+
+  function isValidMiniSudokuDigits(digits) {
+    return sudokuUnits().every(function (unit) {
+      var values = unit.map(function (index) { return digits[index]; }).sort();
+
+      return values.join("") === "1234";
+    });
+  }
+
+  function sudokuUnits() {
+    var units = [];
+
+    for (var row = 0; row < 4; row += 1) {
+      units.push([row * 4, row * 4 + 1, row * 4 + 2, row * 4 + 3]);
+    }
+    for (var col = 0; col < 4; col += 1) {
+      units.push([col, col + 4, col + 8, col + 12]);
+    }
+    units.push([0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]);
+    return units;
+  }
+
+  function findSudokuSingleRepairs(digits) {
+    var repairs = [];
+
+    digits.forEach(function (currentDigit, index) {
+      [1, 2, 3, 4].forEach(function (digit) {
+        var repaired;
+
+        if (digit === currentDigit) {
+          return;
+        }
+        repaired = digits.slice();
+        repaired[index] = digit;
+        if (isValidMiniSudokuDigits(repaired)) {
+          repairs.push({ index: index, digit: digit });
+        }
+      });
+    });
+    return repairs;
+  }
+
+  function findSudokuSwapRepairs(digits) {
+    var repairs = [];
+
+    for (var left = 0; left < 16; left += 1) {
+      for (var right = left + 1; right < 16; right += 1) {
+        var repaired;
+
+        if (digits[left] === digits[right]) {
+          continue;
+        }
+        repaired = digits.slice();
+        swapValues(repaired, left, right);
+        if (isValidMiniSudokuDigits(repaired)) {
+          repairs.push({ indices: [left, right] });
+        }
+      }
+    }
+    return repairs;
+  }
+
+  function swapValues(items, left, right) {
+    var temp = items[left];
+
+    items[left] = items[right];
+    items[right] = temp;
+  }
+
+  function minesweeperForcedTemplates() {
+    return [
+      { mines: [1, 24], clues: [0, 5, 6], mineCount: 2 },
+      { mines: [3, 20], clues: [2, 7, 8], mineCount: 2 },
+      { mines: [21, 4], clues: [15, 16, 20], mineCount: 2 },
+      { mines: [23, 0], clues: [18, 19, 24], mineCount: 2 }
+    ];
+  }
+
+  function minesweeperMarkAllTemplates() {
+    return [
+      { mines: [7, 12, 17], hidden: [6, 7, 8, 11, 12, 13, 16, 17, 18], mineCount: 3 },
+      { mines: [2, 7, 11], hidden: [1, 2, 3, 6, 7, 8, 11, 12], mineCount: 3 },
+      { mines: [13, 18, 23], hidden: [12, 13, 14, 17, 18, 19, 22, 23], mineCount: 3 },
+      { mines: [6, 8, 16, 18], hidden: [6, 7, 8, 11, 12, 13, 16, 17, 18], mineCount: 4 }
+    ];
+  }
+
+  function transformMinesweeperTemplate(template, transform) {
+    return {
+      mines: uniqueSorted((template.mines || []).map(function (index) { return transformIndex(index, transform); })),
+      clues: template.clues ? uniqueSorted(template.clues.map(function (index) { return transformIndex(index, transform); })) : null,
+      hidden: template.hidden ? uniqueSorted(template.hidden.map(function (index) { return transformIndex(index, transform); })) : null,
+      mineCount: template.mineCount
+    };
+  }
+
+  function minesweeperRoundFromTemplate(typeId, template, answerMode, breakMode) {
+    var clueIndices = template.clues || range(CELL_COUNT).filter(function (index) {
+      return (template.hidden || []).indexOf(index) === -1;
+    });
+    var board = minesweeperBoard(template.mines, clueIndices);
+
+    return {
+      answerMode: answerMode,
+      board: board,
+      expected: cloneBoard(board),
+      answerIndex: template.mines[0],
+      answerIndices: uniqueSorted(template.mines),
+      mineCount: template.mineCount || template.mines.length,
+      mineLayoutCount: 0,
+      clueCount: clueIndices.length,
+      candidateMineCount: hiddenMinesweeperIndices(board).length,
+      breakMode: breakMode,
+      breakSignature: makeBreakSignature(typeId, breakMode, template.mines.join("."), "mines-" + template.mineCount)
+    };
+  }
+
+  function minesweeperBoard(mines, clueIndices) {
+    var mineSet = {};
+    var clueSet = {};
+
+    mines.forEach(function (index) {
+      mineSet[index] = true;
+    });
+    clueIndices.forEach(function (index) {
+      clueSet[index] = true;
+    });
+    return range(CELL_COUNT).map(function (index) {
+      if (clueSet[index]) {
+        return minesweeperClueCell(index, countAdjacentMines(index, mineSet));
+      }
+      return minesweeperHiddenCell(index, Boolean(mineSet[index]));
+    });
+  }
+
+  function minesweeperClueCell(index, count) {
+    return hydrateCell(index, {
+      kind: "minesweeper clue",
+      glyph: String(count),
+      label: String(count),
+      value: { minesweeper: "clue", clue: count },
+      classNames: ["token-minesweeper", "mine-clue", "mine-count-" + count],
+      ariaLabel: "Minesweeper clue row " + (Math.floor(index / GRID_SIZE) + 1) + " column " + (index % GRID_SIZE + 1) + ": " + count + " nearby mines",
+      interactive: false,
+      selectable: false,
+      expectedGlyph: String(count),
+      expectedValue: { minesweeper: "clue", clue: count }
+    });
+  }
+
+  function minesweeperHiddenCell(index, isMine) {
+    return hydrateCell(index, {
+      kind: "minesweeper hidden",
+      glyph: "□",
+      label: "hidden",
+      value: { minesweeper: "hidden", mine: Boolean(isMine) },
+      classNames: ["token-minesweeper", "mine-hidden"],
+      ariaLabel: "Minesweeper hidden cell row " + (Math.floor(index / GRID_SIZE) + 1) + " column " + (index % GRID_SIZE + 1),
+      interactive: true,
+      selectable: true,
+      expectedGlyph: "□",
+      expectedValue: { minesweeper: "hidden", mine: Boolean(isMine) },
+      answerRevealGlyph: "💣"
+    });
+  }
+
+  function countAdjacentMines(index, mineSet) {
+    return neighbors8(index).filter(function (neighborIndex) {
+      return Boolean(mineSet[neighborIndex]);
+    }).length;
+  }
+
+  function neighbors8(index) {
+    var point = indexToPoint(index);
+    var results = [];
+
+    for (var dr = -1; dr <= 1; dr += 1) {
+      for (var dc = -1; dc <= 1; dc += 1) {
+        var next = { row: point.row + dr, col: point.col + dc };
+
+        if ((dr !== 0 || dc !== 0) && isInside(next)) {
+          results.push(positionToIndex(next.row, next.col));
+        }
+      }
+    }
+    return results;
+  }
+
+  function hiddenMinesweeperIndices(board) {
+    return board.filter(function (cell) {
+      return cell.value && cell.value.minesweeper === "hidden";
+    }).map(function (cell) { return cell.index; });
+  }
+
+  function clueIndexes(board) {
+    return board.filter(function (cell) {
+      return cell.value && cell.value.minesweeper === "clue";
+    }).map(function (cell) { return cell.index; });
+  }
+
+  function clueNeighborIndexes(board, index) {
+    return neighbors8(index).filter(function (neighborIndex) {
+      return board[neighborIndex] && board[neighborIndex].value && board[neighborIndex].value.minesweeper === "clue";
+    });
+  }
+
+  function enumerateMinesweeperLayouts(round) {
+    var hidden = hiddenMinesweeperIndices(round.board);
+    var clueCells = round.board.filter(function (cell) {
+      return cell.value && cell.value.minesweeper === "clue";
+    });
+    var mineCount = Number(round.mineCount) || round.answerIndices.length;
+    var layouts = [];
+
+    combinations(hidden, mineCount, function (candidate) {
+      var mineSet = {};
+
+      candidate.forEach(function (index) {
+        mineSet[index] = true;
+      });
+      if (clueCells.every(function (cell) {
+        return countAdjacentMines(cell.index, mineSet) === cell.value.clue;
+      })) {
+        layouts.push(candidate.slice().sort(function (a, b) { return a - b; }));
+      }
+    });
+    round.mineLayoutCount = layouts.length;
+    return layouts;
+  }
+
+  function combinations(items, count, callback) {
+    var picked = [];
+
+    function visit(start) {
+      if (picked.length === count) {
+        callback(picked.slice());
+        return;
+      }
+      for (var index = start; index <= items.length - (count - picked.length); index += 1) {
+        picked.push(items[index]);
+        visit(index + 1);
+        picked.pop();
+      }
+    }
+
+    visit(0);
+  }
+
+  function forcedMineIndexes(layouts) {
+    if (!layouts.length) {
+      return [];
+    }
+    return layouts[0].filter(function (index) {
+      return layouts.every(function (layout) {
+        return layout.indexOf(index) !== -1;
+      });
+    });
+  }
+
   function commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, explanation, wrongTapHint, evidence, relatedIndexes) {
     return {
       random: random,
@@ -2393,7 +3039,8 @@
       ariaLabel: "empty",
       interactive: true,
       selectable: true,
-      selected: false
+      selected: false,
+      answerRevealGlyph: ""
     }, cell, {
       index: index,
       row: Math.floor(index / GRID_SIZE),
@@ -2415,6 +3062,7 @@
         interactive: cell.interactive !== false,
         selectable: cell.selectable !== false,
         selected: Boolean(cell.selected),
+        answerRevealGlyph: cell.answerRevealGlyph || "",
         expectedGlyph: cell.expectedGlyph,
         expectedValue: cloneValue(cell.expectedValue)
       });
@@ -2708,6 +3356,79 @@
     };
   }
 
+  function validateSudokuConflict(round) {
+    var digits = sudokuDigitsFromBoard(round.board);
+    var repairs = findSudokuSingleRepairs(digits);
+    var answers = repairs.map(function (repair) {
+      return repair.index;
+    });
+
+    return {
+      valid: round.columns === 4 && repairs.length === 1 && repairs[0].index === round.answerIndex && boardIsUsable(round),
+      mismatches: answers,
+      answers: answers
+    };
+  }
+
+  function validateMiniSudokuSwap(round) {
+    var digits = sudokuDigitsFromBoard(round.board);
+    var repairs = findSudokuSwapRepairs(digits);
+    var answerIndices = round.answerIndices || [];
+    var repaired = digits.slice();
+
+    if (answerIndices.length === 2) {
+      swapValues(repaired, answerIndices[0], answerIndices[1]);
+    }
+    return {
+      valid: round.columns === 4 && repairs.length === 1 && sameSet(repairs[0].indices, answerIndices) && isValidMiniSudokuDigits(repaired) && boardIsUsable(round),
+      mismatches: answerIndices,
+      answers: repairs.length ? repairs[0].indices : []
+    };
+  }
+
+  function validateMinesweeperForcedMine(round) {
+    var layouts = enumerateMinesweeperLayouts(round);
+    var forced = forcedMineIndexes(layouts);
+    var cluesDisabled = round.board.filter(function (cell) {
+      return cell.value && cell.value.minesweeper === "clue";
+    }).every(function (cell) {
+      return cell.interactive === false && cell.selectable === false;
+    });
+    var activeMinesHidden = round.board.every(function (cell) {
+      return !(cell.value && cell.value.minesweeper === "hidden" && cell.value.mine && cell.glyph === "💣");
+    });
+
+    return {
+      valid: layouts.length > 0 && forced.length === 1 && forced[0] === round.answerIndex && cluesDisabled && activeMinesHidden && boardIsUsable(round),
+      mismatches: forced,
+      answers: forced
+    };
+  }
+
+  function validateMinesweeperMarkAll(round) {
+    var layouts = enumerateMinesweeperLayouts(round);
+    var answers = layouts.length === 1 ? layouts[0] : [];
+    var cluesDisabled = round.board.filter(function (cell) {
+      return cell.value && cell.value.minesweeper === "clue";
+    }).every(function (cell) {
+      return cell.interactive === false && cell.selectable === false;
+    });
+    var selectableHiddenOnly = round.board.filter(function (cell) {
+      return cell.selectable !== false && cell.interactive !== false;
+    }).every(function (cell) {
+      return cell.value && cell.value.minesweeper === "hidden";
+    });
+    var activeMinesHidden = round.board.every(function (cell) {
+      return !(cell.value && cell.value.minesweeper === "hidden" && cell.value.mine && cell.glyph === "💣");
+    });
+
+    return {
+      valid: layouts.length === 1 && sameSet(answers, round.answerIndices || []) && cluesDisabled && selectableHiddenOnly && activeMinesHidden && boardIsUsable(round),
+      mismatches: round.answerIndices || [],
+      answers: answers
+    };
+  }
+
   function getMismatches(round) {
     var mismatches = [];
     round.board.forEach(function (cell, index) {
@@ -2933,6 +3654,16 @@
 
   function cardSymbols() {
     return ["A♠", "2♥", "3♦", "4♣", "7♥", "9♠", "J♣", "Q♦"];
+  }
+
+  function sudokuSymbols() {
+    return SUDOKU.length ? SUDOKU.slice(0, 4) : ["1", "2", "3", "4"];
+  }
+
+  function minesweeperSymbols() {
+    return MINESWEEPER.length ? MINESWEEPER.filter(function (symbol) {
+      return ["mine-hidden", "mine-flag", "mine-bomb", "mine-clue-1", "mine-clue-2", "mine-clue-3"].indexOf(symbol.id) !== -1;
+    }) : ["□", "⚑", "💣", "1", "2", "3"];
   }
 
   function pairSymbols(leftId, rightId) {
@@ -3255,9 +3986,19 @@
     validateMazeBridgeRepair: validateMazeBridgeRepair,
     validateObjectSwap: validateObjectSwap,
     validateObjectRackComplete: validateObjectRackComplete,
+    validateSudokuConflict: validateSudokuConflict,
+    validateMiniSudokuSwap: validateMiniSudokuSwap,
+    validateMinesweeperForcedMine: validateMinesweeperForcedMine,
+    validateMinesweeperMarkAll: validateMinesweeperMarkAll,
     validateChessAttack: validateChessAttack,
     validateGoCaptureMax: validateGoCaptureMax,
     validateGoLiberties: validateGoLiberties,
+    sudokuDigitsFromBoard: sudokuDigitsFromBoard,
+    isValidMiniSudokuDigits: isValidMiniSudokuDigits,
+    findSudokuSingleRepairs: findSudokuSingleRepairs,
+    findSudokuSwapRepairs: findSudokuSwapRepairs,
+    enumerateMinesweeperLayouts: enumerateMinesweeperLayouts,
+    forcedMineIndexes: forcedMineIndexes,
     getMismatches: getMismatches,
     getLocalDateKey: getLocalDateKey,
     getPuzzleNumber: getPuzzleNumber,

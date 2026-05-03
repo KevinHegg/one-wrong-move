@@ -117,6 +117,26 @@
     return makeSymbol("die-" + value, String(value), "die face " + value, "dice", ["die", "pips"], String(value), { value: value });
   });
 
+  var sudoku = [1, 2, 3, 4, 5].map(function (value) {
+    return makeSymbol("sudoku-" + value, String(value), "digit " + value, "sudoku", ["digit", "number-grid"], String(value), {
+      value: value,
+      displayKind: "text",
+      ariaLabel: "Sudoku digit " + value
+    });
+  });
+
+  var minesweeper = [
+    makeSymbol("mine-hidden", "□", "hidden square", "minesweeper", ["hidden", "candidate"], "hidden", { displayKind: "text" }),
+    makeSymbol("mine-flag", "⚑", "flag", "minesweeper", ["flag", "selection"], "flag", { displayKind: "text" }),
+    makeSymbol("mine-bomb", "💣", "mine", "minesweeper", ["mine", "answer"], "mine", { displayKind: "emoji" })
+  ].concat(Array.from({ length: 9 }, function (_, count) {
+    return makeSymbol("mine-clue-" + count, String(count), count + " nearby mines", "minesweeper", ["clue", "number-grid"], String(count), {
+      value: count,
+      displayKind: "text",
+      ariaLabel: "Minesweeper clue " + count
+    });
+  }));
+
   function domino(left, right) {
     return makeSymbol(
       "domino-" + left + "-" + right,
@@ -282,7 +302,7 @@
     makeSymbol("divider", "•", "divider", "layout", ["divider"], "divider")
   ];
 
-  var allSymbols = suits.concat(chess, checkers, go, logic, dice, ecology, food, kitchen, music, sky, sports, workshop, household, directions, hours, abstract);
+  var allSymbols = suits.concat(chess, checkers, go, logic, dice, sudoku, minesweeper, ecology, food, kitchen, music, sky, sports, workshop, household, directions, hours, abstract);
   var symbolMap = {};
   allSymbols.forEach(function (symbol) {
     symbolMap[symbol.id] = symbol;
@@ -343,6 +363,8 @@
       go: go,
       logic: logic,
       dice: dice,
+      sudoku: sudoku,
+      minesweeper: minesweeper,
       domino: domino,
       animals: ecology,
       ecology: ecology,
