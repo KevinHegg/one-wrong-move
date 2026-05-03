@@ -24,6 +24,18 @@ The old three-round daily format was clean, but it made the title less meaningfu
 
 This changes the emotional shape of the game. A correct answer is not just progress through a fixed checklist; it is survival. The score also becomes easier to understand: completed levels are the primary achievement, and total active time breaks ties.
 
+## Ladder And Free Play
+
+The main high-stakes mode is now labeled **Ladder Run** in the player UI. It keeps the Survival rule: one wrong committed move or a timeout ends the run.
+
+Three-Set Free Play exists because some of the better puzzle types are hard enough that players need a place to learn them without immediate failure. Free Play plays exactly three puzzles, keeps briefings paused, and lets wrong attempts add mistakes instead of ending the session. Its score reuses the earlier lower-is-better formula:
+
+```text
+scoreSeconds = Math.ceil(totalActiveMs / 1000) + mistakes * 10
+```
+
+This gives the product two useful rhythms: Ladder for tension and Free Play for learning.
+
 ## Answer Modes
 
 The puzzle model supports four answer modes:
@@ -34,6 +46,21 @@ The puzzle model supports four answer modes:
 - `twoStep`: make two tentative selections, then submit the move.
 
 Single-answer and choose-one puzzles preserve the fast tap flow. Multi-select and two-step puzzles treat selection clicks as planning, not final moves. The run ends only when the player presses **Submit Move** with a wrong set. That extra commit step prevents accidental finger taps from killing a run on puzzles that require multiple precise selections.
+
+## Target Clarity
+
+The latest revision adds explicit target metadata because some good puzzles naturally describe a row, column, output, or equation rather than one ordinary cell. The rule is simple: instructions and click behavior must agree.
+
+Supported target types:
+
+- `cell`: tap the exact wrong cell or best move.
+- `row`: tap the broken row; any cell in the answer row is accepted.
+- `column`: tap the broken column; any cell in the answer column is accepted.
+- `outputCell`: tap the wrong output; only output cells are enabled.
+- `multiSelect`: select the exact set, then submit.
+- `twoStep`: make the planned two-step move, then submit.
+
+Logic Gate Row now prefers output targeting: inputs, gates, and equals signs are visibly disabled, skipped by keyboard navigation, and cannot accidentally end a Ladder run. Dice Sum targets either the wrong die or the wrong total, and the instruction changes to match. A new Row Rhythm puzzle proves that whole-row targeting accepts any cell in the answer row while giving the row a subtle affordance.
 
 ## State Flow
 
@@ -84,7 +111,7 @@ The survival selector uses deterministic randomness from the date and session at
 | Domino Chain | Dominoes | identifyOne | 1 | Matching chain | Neighboring domino halves must match. |
 | Dice Sum | Dice | identifyOne | 1 | Small arithmetic | Dice rows must add to the target. |
 | Card Straight | Cards | identifyOne | 2 | Rank progression | Rows form rank straights with suit logic. |
-| Logic Gate Row | Logic | identifyOne | 2 | Boolean logic | Inputs and gates must produce the shown output. |
+| Logic Gate Row | Logic | identifyOne | 2 | Boolean logic | Tap the wrong output; inputs and gates are disabled. |
 | Mirror Trap | Relationships | identifyOne | 2 | Mapping inference | The right side mirrors with transformed partners. |
 | Rotation Logic | Compass | identifyOne | 2 | Rotation sequence | Directions rotate by a fixed amount. |
 | Latin Trap | Symbol Grammar | identifyOne | 2 | Row-column constraints | Rows and columns each need one of every symbol. |
@@ -100,7 +127,12 @@ The survival selector uses deterministic randomness from the date and session at
 | Maze Exit | Maze | chooseOne | 2 | Reachability | Trace from S and choose the reachable exit. |
 | Maze Key Exit | Maze | twoStep | 3 | Key-route pairing | Choose the reachable key and the exit it opens. |
 | Scrabble Cross | Words | twoStep | 3 | Word crossing | Choose the square and rack tile that make valid crossing words. |
+| Mini Crossword Fill | Words | twoStep | 2 | Crossing words | Choose the blank and rack letter that complete both words. |
+| Crossword Pair | Words | multiSelect | 3 | Paired blanks | Select the two blanks and two rack letters that complete the crosses. |
 | Tetris Fit | Tetris | multiSelect | 3 | Shape placement | Select the exact tetromino cells that complete the target line. |
+| Circuit Switch Pair | Circuits | multiSelect | 3 | Switch repair | Select the two switches that turn the target light on. |
+| Maze Bridge Repair | Maze | multiSelect | 3 | Route repair | Select the two broken bridge tiles that connect S to E. |
+| Row Rhythm | Logic Grid | identifyOne | 2 | Row targeting | Tap the row that breaks its count-and-order rhythm. |
 
 ## Retired From Daily Play
 
@@ -151,7 +183,15 @@ Go rendering now uses a board-grid treatment rather than generic tiles. Black st
 
 **Scrabble Cross** uses a tiny curated vocabulary. The player chooses one empty square and one rack tile that create valid crossing words.
 
+**Mini Crossword Fill** is a smaller, cleaner word puzzle for Free Play. One blank square and one rack letter complete both a horizontal and a vertical word.
+
+**Crossword Pair** extends the word system into multi-select: the player chooses two blank board squares and two rack letters, then submits the exact planned repair.
+
 **Tetris Fit** asks for the exact four cells of the tetromino placement that completes the target row. It uses familiar piece shapes but avoids a full falling-block simulation.
+
+**Circuit Switch Pair** asks for the exact two switches that turn the target light on. The circuit is intentionally tiny, using 0/1 switch states and a visible target, so the challenge is pair reasoning rather than electrical notation.
+
+**Maze Bridge Repair** asks for the two broken route tiles that reconnect `S` to `E`. The validator proves that no other broken-tile pair creates a valid route.
 
 ## Validators And Uniqueness
 
@@ -162,11 +202,13 @@ Every puzzle type has a generator and validator. The validator checks that:
 - the answer mode is valid
 - single-answer puzzles have exactly one answer
 - multi-select puzzles have exactly one required answer set
+- row and column target puzzles accept the whole declared row or column
+- output target puzzles disable every non-output candidate
 - the answer matches `answerIndex` or `answerIndices`
 - the puzzle has briefing copy, example data, symbols, explanation, hint, evidence, and break signature
 - retired types are not selected for the daily mix
 
-The validation scripts test all registered types directly, 300 date seeds, five same-session attempts, and the first 50 survival levels per date/attempt pair. Go Capture Max, Go Liberties, Chess Attack, Maze Exit, and the survival stream have independent domain or stream validators.
+The validation scripts test all registered types directly, 300 date seeds, five same-session attempts, the first 50 Ladder levels per date/attempt pair, and the Three-Set Free Play selector. Go Capture Max, Go Liberties, Chess Attack, Maze Exit, targeting behavior, word puzzles, and the Ladder stream have independent domain or stream validators.
 
 ## Session Variation
 

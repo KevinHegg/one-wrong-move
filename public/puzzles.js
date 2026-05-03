@@ -18,6 +18,15 @@
     multiSelect: "multiSelect",
     twoStep: "twoStep"
   };
+  var TARGET_TYPES = {
+    cell: "cell",
+    row: "row",
+    column: "column",
+    region: "region",
+    outputCell: "outputCell",
+    twoStep: "twoStep",
+    multiSelect: "multiSelect"
+  };
 
   var S = Symbols.packs;
   var ABSTRACT = S.abstract;
@@ -165,6 +174,19 @@
       validator: validateExpectedMismatch
     }),
     type({
+      id: "row-rhythm",
+      name: "Row Rhythm",
+      sourceWorld: "Logic Grid",
+      difficulty: 2,
+      answerMode: ANSWER_MODES.identifyOne,
+      cognitiveSkill: "row-level pattern",
+      symbols: ["A", "B", "C", "D", "E"],
+      briefing: "Four rows follow the same rhythm. Tap any cell in the row that breaks it.",
+      example: example(5, "A row target accepts any cell in the broken row.", ["A", "B", "C", "D", "E"]),
+      generate: generateRowRhythm,
+      validator: validateRowTarget
+    }),
+    type({
       id: "mirror-trap",
       name: "Mirror Trap",
       sourceWorld: "Relationships",
@@ -295,6 +317,58 @@
       example: example(5, "Use common words only; one square and one rack letter work together.", ["C", "·", "T", "+", "A"]),
       generate: generateScrabbleCross,
       validator: validateTwoStep
+    }),
+    type({
+      id: "mini-crossword-fill",
+      name: "Mini Crossword Fill",
+      sourceWorld: "Crossword",
+      difficulty: 2,
+      answerMode: ANSWER_MODES.twoStep,
+      cognitiveSkill: "crossing words",
+      symbols: ["CAT", "DOG", "SUN", "TREE", "A", "O", "E", "R"],
+      briefing: "Choose the empty crossword square, then choose the rack letter that makes both crossing words valid.",
+      example: example(5, "One blank square plus one rack letter completes two common crossing words.", ["C", "□", "T", "+", "A"]),
+      generate: generateMiniCrosswordFill,
+      validator: validateWordTwoStep
+    }),
+    type({
+      id: "crossword-pair",
+      name: "Crossword Pair",
+      sourceWorld: "Crossword",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "crossing word repair",
+      symbols: ["WORD", "PLAY", "GAME", "BIRD", "A", "E", "O", "R"],
+      briefing: "Fill two blanks so every crossing word is valid. Select the two blanks and two rack letters, then submit.",
+      example: example(5, "Select both blank squares and their rack letters as one planned move.", ["W", "□", "R", "D", "+"]),
+      generate: generateCrosswordPair,
+      validator: validateExactAnswerSet
+    }),
+    type({
+      id: "circuit-switch-pair",
+      name: "Circuit Switch Pair",
+      sourceWorld: "Circuits",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "logic repair",
+      symbols: ["0", "1", "AND", "OR", "XOR", "LIGHT"],
+      briefing: "Select the exact two switches to flip so the target light turns on.",
+      example: example(5, "Two switches feed tiny gates; the target should turn on.", ["0", "1", "XOR", "=", "ON"]),
+      generate: generateCircuitSwitchPair,
+      validator: validateCircuitSwitchPair
+    }),
+    type({
+      id: "maze-bridge-repair",
+      name: "Maze Bridge Repair",
+      sourceWorld: "Maze",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "route repair",
+      symbols: ["S", "F", "·", "■", "×"],
+      briefing: "Select the two broken bridge tiles that repair the route from S to F.",
+      example: example(5, "Repair exactly two breaks to connect the route.", ["S", "×", "·", "×", "F"]),
+      generate: generateMazeBridgeRepair,
+      validator: validateMazeBridgeRepair
     }),
     type({
       id: "tetris-fit",
@@ -448,6 +522,31 @@
     };
   }
 
+  function generateFreePlaySet(dateKey, sessionAttempt, usedBreakSignatures) {
+    var attempt = Number(sessionAttempt) || 1;
+    var used = (usedBreakSignatures || []).slice();
+    var random = createRandom(dateKey + "|freeplay-selection|" + attempt);
+    var selected = selectFreePlayTypes(random);
+    var levels = selected.map(function (selectedType, index) {
+      var puzzleNumber = index + 1;
+      var avoidForType = used.filter(function (signature) {
+        return signature.indexOf(selectedType.id + "|") === 0;
+      });
+      var round = normalizeRound(selectedType, selectedType.generate(dateKey + "|" + attempt + "|freeplay|" + selectedType.id + "|" + puzzleNumber, puzzleNumber, attempt, avoidForType), puzzleNumber);
+      round.levelNumber = puzzleNumber;
+      round.title = "Puzzle " + puzzleNumber + ": " + selectedType.name;
+      used.push(round.breakSignature);
+      return round;
+    });
+
+    return {
+      dateKey: dateKey,
+      sessionAttempt: attempt,
+      levels: levels,
+      rounds: levels
+    };
+  }
+
   function selectSurvivalTypes(random, count) {
     var selected = [];
     var activeTypes = puzzleTypes.filter(function (candidate) {
@@ -488,6 +587,37 @@
       selected.push(shuffle(candidates, random)[0]);
     }
 
+    return selected;
+  }
+
+  function selectFreePlayTypes(random) {
+    var activeTypes = puzzleTypes.filter(function (candidate) {
+      return !candidate.retired && candidate.difficulty <= 3;
+    });
+    var selected = [];
+    var preferredFirst = prefer(activeTypes, function (candidate) {
+      return ["domino-chain", "dice-sum", "suit-cycle", "pair-pact", "maze-exit"].indexOf(candidate.id) !== -1;
+    });
+    selected.push(shuffle(preferredFirst, random)[0]);
+
+    var multiOrWord = prefer(activeTypes.filter(function (candidate) {
+      return selected.every(function (chosen) { return chosen.id !== candidate.id; });
+    }), function (candidate) {
+      return candidate.answerMode === ANSWER_MODES.multiSelect || candidate.answerMode === ANSWER_MODES.twoStep || candidate.sourceWorld === "Crossword" || candidate.sourceWorld === "Words";
+    });
+    selected.push(shuffle(multiOrWord, random)[0]);
+
+    var remaining = activeTypes.filter(function (candidate) {
+      return selected.every(function (chosen) {
+        return chosen.id !== candidate.id && chosen.sourceWorld !== candidate.sourceWorld;
+      });
+    });
+    if (remaining.length === 0) {
+      remaining = activeTypes.filter(function (candidate) {
+        return selected.every(function (chosen) { return chosen.id !== candidate.id; });
+      });
+    }
+    selected.push(shuffle(remaining, random)[0]);
     return selected;
   }
 
@@ -597,9 +727,101 @@
     normalized.submitLabel = round.submitLabel || (answerMode === ANSWER_MODES.multiSelect || answerMode === ANSWER_MODES.twoStep ? "Submit Move" : "");
     normalized.instruction = round.instruction || instructionForMode(answerMode);
     normalized.hint = round.wrongTapHint;
+    normalized.targeting = normalizeTargeting(normalized, round.targeting);
+    normalized.board = applyTargetingToBoard(normalized.board, normalized.targeting, normalized.answerMode);
     normalized.cells = normalized.board;
     normalized.valid = selectedType.validator(normalized).valid;
     return normalized;
+  }
+
+  function normalizeTargeting(round, customTargeting) {
+    var targeting = Object.assign({
+      targetType: targetTypeForMode(round.answerMode),
+      clickableIndices: [],
+      answerIndices: round.answerIndices.slice(),
+      answerRow: null,
+      answerColumn: null,
+      disabledIndices: [],
+      acceptsAnyCellInAnswerRow: false,
+      acceptsAnyCellInAnswerColumn: false,
+      targetHint: ""
+    }, customTargeting || {});
+
+    if (targeting.answerIndices.length === 0) {
+      targeting.answerIndices = round.answerIndices.slice();
+    }
+    if (targeting.targetType === TARGET_TYPES.row && targeting.answerRow === null) {
+      targeting.answerRow = Math.floor((round.answerIndex || 0) / GRID_SIZE);
+    }
+    if (targeting.targetType === TARGET_TYPES.column && targeting.answerColumn === null) {
+      targeting.answerColumn = (round.answerIndex || 0) % GRID_SIZE;
+    }
+    if (targeting.acceptsAnyCellInAnswerRow && targeting.answerRow !== null) {
+      targeting.answerIndices = rowIndices(targeting.answerRow);
+    }
+    if (targeting.acceptsAnyCellInAnswerColumn && targeting.answerColumn !== null) {
+      targeting.answerIndices = columnIndices(targeting.answerColumn);
+    }
+    if (targeting.clickableIndices.length === 0) {
+      if (round.answerMode === ANSWER_MODES.multiSelect || targeting.targetType === TARGET_TYPES.multiSelect) {
+        targeting.clickableIndices = round.board.filter(function (cell) {
+          return cell.selectable !== false && cell.interactive !== false;
+        }).map(function (cell) { return cell.index; });
+      } else if (round.answerMode === ANSWER_MODES.twoStep || targeting.targetType === TARGET_TYPES.twoStep) {
+        targeting.clickableIndices = round.board.filter(function (cell) {
+          return cell.value && cell.value.selectionRole;
+        }).map(function (cell) { return cell.index; });
+      } else if (targeting.acceptsAnyCellInAnswerRow && targeting.answerRow !== null) {
+        targeting.clickableIndices = rowIndices(targeting.answerRow);
+      } else if (targeting.acceptsAnyCellInAnswerColumn && targeting.answerColumn !== null) {
+        targeting.clickableIndices = columnIndices(targeting.answerColumn);
+      } else {
+        targeting.clickableIndices = round.board.filter(function (cell) {
+          return cell.selectable !== false && cell.interactive !== false;
+        }).map(function (cell) { return cell.index; });
+      }
+    }
+    targeting.answerIndices = uniqueSorted(targeting.answerIndices);
+    targeting.clickableIndices = uniqueSorted(targeting.clickableIndices);
+    targeting.disabledIndices = uniqueSorted(range(CELL_COUNT).filter(function (index) {
+      return targeting.clickableIndices.indexOf(index) === -1;
+    }));
+    return targeting;
+  }
+
+  function targetTypeForMode(answerMode) {
+    if (answerMode === ANSWER_MODES.multiSelect) {
+      return TARGET_TYPES.multiSelect;
+    }
+    if (answerMode === ANSWER_MODES.twoStep) {
+      return TARGET_TYPES.twoStep;
+    }
+    return TARGET_TYPES.cell;
+  }
+
+  function applyTargetingToBoard(board, targeting, answerMode) {
+    var clickable = targeting.clickableIndices || [];
+    return board.map(function (cell, index) {
+      var clone = hydrateCell(index, cell);
+      var isClickable = clickable.indexOf(index) !== -1;
+
+      if (answerMode === ANSWER_MODES.identifyOne || answerMode === ANSWER_MODES.chooseOne) {
+        clone.interactive = isClickable;
+        clone.selectable = isClickable;
+      }
+      if (!isClickable) {
+        clone.classNames = (clone.classNames || []).concat(["is-disabled-target"]);
+      }
+      if (targeting.acceptsAnyCellInAnswerRow && targeting.answerRow === clone.row) {
+        clone.classNames = (clone.classNames || []).concat(["target-row"]);
+        clone.ariaLabel = "Row " + (clone.row + 1) + " target, " + clone.ariaLabel;
+      }
+      if (targeting.acceptsAnyCellInAnswerColumn && targeting.answerColumn === clone.col) {
+        clone.classNames = (clone.classNames || []).concat(["target-column"]);
+        clone.ariaLabel = "Column " + (clone.col + 1) + " target, " + clone.ariaLabel;
+      }
+      return clone;
+    });
   }
 
   function instructionForMode(answerMode) {
@@ -773,9 +995,31 @@
       addCandidate(candidates, "dice-sum", "sum-too-low", positionToIndex(row, 4), glyphCell(positionToIndex(row, 4), String(sum - 1), "target", "sum target " + (sum - 1), ["token-target"], sum - 1));
       addCandidate(candidates, "dice-sum", "die-breaks-total", positionToIndex(row, 1), dieCell(positionToIndex(row, 1), mod(b + 2, 6) + 1));
     }
-    return makeExpectedRound("dice-sum", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, "That die or total breaks the row sum.", "Numbers stay small: add the first three dice and compare to the target.", function () {
+    var round = makeExpectedRound("dice-sum", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, "That die or total breaks the row sum.", "Numbers stay small: add the first three dice and compare to the target.", function () {
       return "Each row's first three dice add to the target; the tapped cell is the only row whose math fails.";
     }));
+    if (round.answerIndex % GRID_SIZE === 4) {
+      round.instruction = "Tap the wrong total.";
+      round.targeting = {
+        targetType: TARGET_TYPES.outputCell,
+        clickableIndices: [4, 9, 14, 19, 24],
+        answerIndices: [round.answerIndex],
+        targetHint: "Only total cells are clickable."
+      };
+      round.explanation = "That total does not equal the three dice in its row.";
+      round.wrongTapHint = "Only totals can be wrong in this puzzle: add the three dice, then tap the bad total.";
+    } else {
+      round.instruction = "Tap the wrong die.";
+      round.targeting = {
+        targetType: TARGET_TYPES.cell,
+        clickableIndices: [0, 1, 2, 5, 6, 7, 10, 11, 12, 15, 16, 17, 20, 21, 22],
+        answerIndices: [round.answerIndex],
+        targetHint: "Only dice cells are clickable."
+      };
+      round.explanation = "That die is the one that makes its row sum fail.";
+      round.wrongTapHint = "Only dice can be wrong in this puzzle: add the dice and compare with the total.";
+    }
+    return round;
   }
 
   function generateCardStraight(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
@@ -816,9 +1060,46 @@
       });
       addCandidate(candidates, "logic-gate-row", gate.toLowerCase() + "-output-wrong", positionToIndex(row, 4), logicCell(positionToIndex(row, 4), String(output ? 0 : 1)));
     }
-    return makeExpectedRound("logic-gate-row", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, "That output is wrong for the gate.", "Evaluate A and B through the gate; only one row outputs the wrong bit.", function (selected) {
+    var round = makeExpectedRound("logic-gate-row", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, "That output is wrong for the gate.", "Evaluate A and B through the gate; only one row outputs the wrong bit.", function (selected) {
       return "Rows establish tiny logic circuits; row " + (Math.floor(selected.answerIndex / GRID_SIZE) + 1) + " has the wrong output for its gate.";
     }));
+    round.instruction = "Tap the wrong output.";
+    round.targeting = {
+      targetType: TARGET_TYPES.outputCell,
+      clickableIndices: [4, 9, 14, 19, 24],
+      answerIndices: [round.answerIndex],
+      targetHint: "Only output cells are clickable."
+    };
+    return round;
+  }
+
+  function generateRowRhythm(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var symbols = ["A", "B", "C", "D", "E"];
+    var expectedBoard = [];
+    var candidates = [];
+
+    forEachIndex(function (index, row, col) {
+      expectedBoard[index] = glyphCell(index, symbols[mod(col + row, symbols.length)], "rowtarget", "rhythm symbol " + symbols[mod(col + row, symbols.length)], ["token-rowtarget"]);
+    });
+    for (var row = 0; row < GRID_SIZE; row += 1) {
+      var answerIndex = positionToIndex(row, 2);
+      addCandidate(candidates, "row-rhythm", "broken-row-center", answerIndex, glyphCell(answerIndex, symbols[mod(row + 4, symbols.length)], "rowtarget", "wrong rhythm symbol", ["token-rowtarget"]));
+    }
+    var round = makeExpectedRound("row-rhythm", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, "That row breaks the rhythm.", "This is a row target: tap any cell in the row whose A-B-C-D-E rhythm is out of order.", function (selected) {
+      return "Row " + (Math.floor(selected.answerIndex / GRID_SIZE) + 1) + " is the only row whose shifted rhythm is broken.";
+    }));
+    var answerRow = Math.floor(round.answerIndex / GRID_SIZE);
+    round.instruction = "Tap the row that breaks the rule.";
+    round.targeting = {
+      targetType: TARGET_TYPES.row,
+      clickableIndices: range(CELL_COUNT),
+      answerRow: answerRow,
+      acceptsAnyCellInAnswerRow: true,
+      answerIndices: rowIndices(answerRow),
+      targetHint: "Any cell in the broken row counts."
+    };
+    return round;
   }
 
   function generateMirrorTrap(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
@@ -1200,10 +1481,11 @@
       [2, 10, 14, 17].forEach(function (index) {
         board[index] = letterCell(index, ["C", "S", "T", "N"][index % 4], "fixed letter");
       });
-      board[squareIndex] = letterCell(squareIndex, "□", "empty crossing square", { selectionRole: "board-square", tokenId: "square" });
+      board[squareIndex] = letterCell(squareIndex, "□", "empty crossing square", { crossword: "blank", selectionRole: "board-square", tokenId: "square" });
       rack.forEach(function (letter, offset) {
         var index = 20 + offset;
-        board[index] = letterCell(index, letter, "rack tile " + letter, { selectionRole: "rack-tile", tokenId: letter });
+        board[index] = letterCell(index, letter, "rack tile " + letter, { crossword: "rack", selectionRole: "rack-tile", tokenId: letter });
+        board[index].classNames.push("rack-tile");
       });
       return {
         mode: mode,
@@ -1232,6 +1514,193 @@
       evidence: "The curated crossing words are " + selected.validWords.join(" and ") + "; only the selected tile/square pair works.",
       relatedIndexes: selected.answerSteps.map(function (step) { return step.index; }),
       candidatePairs: [{ indices: selected.answerSteps.map(function (step) { return step.index; }), valid: true }]
+    };
+  }
+
+  function generateMiniCrosswordFill(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var scenarios = shuffle([
+      { mode: "cat-sun-a", blank: 6, tile: 21, letter: "A", fixed: [[5, "C"], [7, "T"], [1, "S"], [11, "N"]], words: ["CAT", "SUN"] },
+      { mode: "dog-owl-o", blank: 12, tile: 22, letter: "O", fixed: [[11, "D"], [13, "G"], [2, "O"], [17, "L"]], words: ["DOG", "OWL"] },
+      { mode: "key-tree-e", blank: 8, tile: 23, letter: "E", fixed: [[7, "K"], [9, "Y"], [3, "T"], [13, "R"]], words: ["KEY", "TREE"] },
+      { mode: "fox-road-o", blank: 16, tile: 20, letter: "O", fixed: [[15, "F"], [17, "X"], [11, "R"], [21, "A"]], words: ["FOX", "ROAD"] },
+      { mode: "bee-hive-e", blank: 18, tile: 23, letter: "E", fixed: [[17, "B"], [19, "E"], [13, "H"], [23, "E"]], words: ["BEE", "HIVE"] }
+    ].map(function (scenario) {
+      var board = crosswordBaseBoard();
+      scenario.fixed.forEach(function (item) {
+        board[item[0]] = letterCell(item[0], item[1], "fixed crossword letter " + item[1], { crossword: "fixed" });
+        board[item[0]].selectable = false;
+      });
+      board[scenario.blank] = letterCell(scenario.blank, "□", "empty crossword square", { crossword: "blank", selectionRole: "board-square", tokenId: "blank" });
+      ["A", "O", "E", "R", "N"].forEach(function (letter, offset) {
+        var index = 20 + offset;
+        board[index] = letterCell(index, letter, "rack tile " + letter, { crossword: "rack", selectionRole: "rack-tile", tokenId: letter });
+        board[index].classNames.push("rack-tile");
+      });
+      return {
+        mode: scenario.mode,
+        board: board,
+        answerSteps: [
+          { role: "board-square", index: scenario.blank, tokenId: "blank", label: "Crossword blank" },
+          { role: "rack-tile", index: scenario.tile, tokenId: scenario.letter, label: "Rack tile " + scenario.letter }
+        ],
+        solutionCount: 1,
+        validWords: scenario.words,
+        breakSignature: makeBreakSignature("mini-crossword-fill", scenario.mode, scenario.blank + "." + scenario.tile, scenario.letter)
+      };
+    }), random);
+    var selected = selectCandidate(scenarios, avoidBreakSignatures || []);
+
+    return {
+      answerMode: ANSWER_MODES.twoStep,
+      board: selected.board,
+      answerSteps: selected.answerSteps,
+      answerIndices: selected.answerSteps.map(function (step) { return step.index; }),
+      answerIndex: selected.answerSteps[0].index,
+      submitLabel: "Submit Move",
+      explanation: "That square and rack letter complete both crossing words.",
+      wrongTapHint: "Pick one blank square and one rack tile; both crossings must become common words.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "Only one square-letter pair makes " + selected.validWords.join(" and ") + ".",
+      relatedIndexes: selected.answerSteps.map(function (step) { return step.index; }),
+      wordSolutions: [{ steps: selected.answerSteps, validWords: selected.validWords }]
+    };
+  }
+
+  function generateCrosswordPair(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var scenarios = shuffle([
+      { mode: "word-play", blanks: [6, 13], tiles: [20, 23], letters: ["O", "A"], fixed: [[5, "W"], [7, "R"], [8, "D"], [12, "L"], [14, "Y"]], words: ["WORD", "PLAY"] },
+      { mode: "game-bird", blanks: [7, 17], tiles: [21, 24], letters: ["A", "R"], fixed: [[5, "G"], [6, "M"], [8, "E"], [12, "B"], [22, "D"]], words: ["GAME", "BIRD"] },
+      { mode: "lock-key", blanks: [11, 18], tiles: [20, 22], letters: ["O", "E"], fixed: [[10, "L"], [12, "C"], [13, "K"], [8, "K"], [23, "Y"]], words: ["LOCK", "KEY"] },
+      { mode: "bear-tree", blanks: [6, 16], tiles: [20, 23], letters: ["E", "R"], fixed: [[5, "B"], [7, "A"], [8, "R"], [11, "T"], [21, "E"]], words: ["BEAR", "TREE"] },
+      { mode: "sun-moon", blanks: [8, 18], tiles: [22, 24], letters: ["N", "O"], fixed: [[6, "S"], [7, "U"], [13, "M"], [23, "O"]], words: ["SUN", "MOON"] }
+    ].map(function (scenario) {
+      var board = crosswordBaseBoard();
+      scenario.fixed.forEach(function (item) {
+        board[item[0]] = letterCell(item[0], item[1], "fixed crossword letter " + item[1], { crossword: "fixed" });
+        board[item[0]].selectable = false;
+      });
+      scenario.blanks.forEach(function (index) {
+        board[index] = letterCell(index, "□", "empty crossword square", { crossword: "blank" });
+      });
+      ["O", "A", "E", "R", "N"].forEach(function (letter, offset) {
+        var index = 20 + offset;
+        board[index] = letterCell(index, letter, "rack tile " + letter, { crossword: "rack" });
+        board[index].classNames.push("rack-tile");
+      });
+      return {
+        mode: scenario.mode,
+        board: board,
+        answerIndices: uniqueSorted(scenario.blanks.concat(scenario.tiles)),
+        solutionCount: 1,
+        validWords: scenario.words,
+        breakSignature: makeBreakSignature("crossword-pair", scenario.mode, uniqueSorted(scenario.blanks.concat(scenario.tiles)).join("."), scenario.letters.join(""))
+      };
+    }), random);
+    var selected = selectCandidate(scenarios, avoidBreakSignatures || []);
+
+    return {
+      answerMode: ANSWER_MODES.multiSelect,
+      board: selected.board,
+      answerIndices: selected.answerIndices,
+      answerIndex: selected.answerIndices[0],
+      minSelections: 4,
+      maxSelections: 4,
+      submitLabel: "Submit Move",
+      explanation: "Those two blanks and two rack letters are the only complete crossword repair.",
+      wrongTapHint: "Select exactly two blank squares and exactly two rack letters.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "Only this four-part set makes " + selected.validWords.join(" and ") + ".",
+      relatedIndexes: selected.answerIndices,
+      wordSolutions: [{ indices: selected.answerIndices, validWords: selected.validWords }]
+    };
+  }
+
+  function generateCircuitSwitchPair(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var scenarios = shuffle([
+      { mode: "xor-and", switches: [0, 1, 5, 6], answer: [1, 5], labels: ["0", "1", "1", "0"] },
+      { mode: "and-or", switches: [3, 4, 8, 9], answer: [3, 9], labels: ["0", "1", "0", "1"] },
+      { mode: "nand-xor", switches: [10, 11, 15, 16], answer: [10, 16], labels: ["1", "1", "0", "0"] },
+      { mode: "or-xor", switches: [2, 7, 17, 22], answer: [2, 22], labels: ["0", "0", "1", "1"] },
+      { mode: "cross-feed", switches: [4, 9, 19, 24], answer: [9, 19], labels: ["1", "0", "0", "1"] }
+    ].map(function (scenario) {
+      var board = emptyBoard();
+      scenario.switches.forEach(function (index, offset) {
+        board[index] = glyphCell(index, scenario.labels[offset], "switch", "switch " + (offset + 1) + " value " + scenario.labels[offset], ["token-switch"], { circuit: "switch", switchId: offset + 1 });
+      });
+      board[12] = glyphCell(12, "XOR", "logic", "xor gate", ["token-logic"], { circuit: "gate", gate: "XOR" });
+      board[13] = glyphCell(13, "AND", "logic", "and gate", ["token-logic"], { circuit: "gate", gate: "AND" });
+      board[14] = glyphCell(14, "OFF", "target", "target light off", ["token-target"], { circuit: "light", on: false });
+      [12, 13, 14].forEach(function (index) {
+        board[index].selectable = false;
+      });
+      return {
+        mode: scenario.mode,
+        board: board,
+        answerIndices: scenario.answer,
+        solutionCount: 1,
+        breakSignature: makeBreakSignature("circuit-switch-pair", scenario.mode, scenario.answer.join("."), "light-on")
+      };
+    }), random);
+    var selected = selectCandidate(scenarios, avoidBreakSignatures || []);
+
+    return {
+      answerMode: ANSWER_MODES.multiSelect,
+      board: selected.board,
+      answerIndices: selected.answerIndices,
+      answerIndex: selected.answerIndices[0],
+      minSelections: 2,
+      maxSelections: 2,
+      submitLabel: "Submit Move",
+      explanation: "Flipping exactly those two switches turns the target light on.",
+      wrongTapHint: "Choose exactly two switch cells; gates and the light are not switches.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "The circuit template has exactly one two-switch solution.",
+      relatedIndexes: selected.answerIndices,
+      circuitSolutions: [selected.answerIndices]
+    };
+  }
+
+  function generateMazeBridgeRepair(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var scenarios = shuffle(["identity", "mirrorH", "rotate180", "mirrorV", "rotate90"].map(function (transform) {
+      var open = [0, 1, 3, 4, 9, 14, 19, 24].map(function (index) { return transformIndex(index, transform); });
+      var repairs = [2, 7].map(function (index) { return transformIndex(index, transform); });
+      var board = mazeBoard(open, transformIndex(0, transform), [{ index: transformIndex(24, transform), label: "F" }]);
+      repairs.forEach(function (index) {
+        board[index] = mazeToken(index, "×", "bridge", "broken bridge repair candidate", { maze: "bridge" });
+      });
+      [6, 11, 16].map(function (index) { return transformIndex(index, transform); }).forEach(function (index) {
+        board[index] = mazeToken(index, "×", "bridge", "broken bridge decoy", { maze: "bridge" });
+      });
+      return {
+        mode: "bridge-pair-" + transform,
+        board: board,
+        answerIndices: uniqueSorted(repairs),
+        breakSignature: makeBreakSignature("maze-bridge-repair", "bridge-pair-" + transform, uniqueSorted(repairs).join("."), "route")
+      };
+    }), random);
+    var selected = selectCandidate(scenarios, avoidBreakSignatures || []);
+
+    return {
+      answerMode: ANSWER_MODES.multiSelect,
+      board: selected.board,
+      answerIndices: selected.answerIndices,
+      answerIndex: selected.answerIndices[0],
+      minSelections: 2,
+      maxSelections: 2,
+      submitLabel: "Submit Move",
+      explanation: "Repairing those two bridges is the only way to connect S to F.",
+      wrongTapHint: "Select exactly the two broken bridges that complete the route.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "Only the selected bridge pair makes the maze route reachable.",
+      relatedIndexes: selected.answerIndices
     };
   }
 
@@ -1512,6 +1981,16 @@
     return board;
   }
 
+  function crosswordBaseBoard() {
+    var board = emptyBoard();
+
+    forEachIndex(function (index) {
+      board[index] = glyphCell(index, "■", "letter block", "crossword block", ["token-letter", "crossword-block"], { crossword: "block" });
+      board[index].selectable = false;
+    });
+    return board;
+  }
+
   function mazeToken(index, glyph, kind, ariaLabel, value) {
     return glyphCell(index, glyph, "maze " + kind, ariaLabel, ["token-maze", "maze-" + kind], Object.assign({ maze: kind }, value || {}), "", kind === "key" || kind === "exit" ? kind.toUpperCase() : "");
   }
@@ -1670,6 +2149,18 @@
     };
   }
 
+  function validateRowTarget(round) {
+    var mismatches = getMismatches(round);
+    var answerRow = round.targeting && typeof round.targeting.answerRow === "number" ? round.targeting.answerRow : Math.floor(round.answerIndex / GRID_SIZE);
+    var answers = rowIndices(answerRow);
+
+    return {
+      valid: mismatches.length === 1 && Math.floor(mismatches[0] / GRID_SIZE) === answerRow && boardIsUsable(round),
+      mismatches: mismatches,
+      answers: answers
+    };
+  }
+
   function validateChooseOne(round) {
     return {
       valid: typeof round.answerIndex === "number" && boardIsUsable(round),
@@ -1697,6 +2188,18 @@
       valid: answers.length === (round.answerSteps || []).length && answers.length >= 2 && boardIsUsable(round),
       mismatches: answers,
       answers: answers
+    };
+  }
+
+  function validateWordTwoStep(round) {
+    var result = validateTwoStep(round);
+    var rackTiles = round.board.filter(function (cell) {
+      return cell.value && cell.value.crossword === "rack";
+    });
+    return {
+      valid: result.valid && round.wordSolutions && round.wordSolutions.length === 1 && rackTiles.length >= 4,
+      mismatches: result.mismatches,
+      answers: result.answers
     };
   }
 
@@ -1808,6 +2311,27 @@
     };
   }
 
+  function validateCircuitSwitchPair(round) {
+    return {
+      valid: Array.isArray(round.circuitSolutions) && round.circuitSolutions.length === 1 && sameSet(round.circuitSolutions[0], round.answerIndices || []) && boardIsUsable(round),
+      mismatches: round.answerIndices || [],
+      answers: round.answerIndices || []
+    };
+  }
+
+  function validateMazeBridgeRepair(round) {
+    var repairedReachable = mazeReachableWithRepairs(round.board, round.answerIndices || []);
+    var exit = round.board.filter(function (cell) {
+      return cell.value && cell.value.maze === "exit";
+    })[0];
+
+    return {
+      valid: Boolean(exit) && repairedReachable.indexOf(exit.index) !== -1 && (round.answerIndices || []).length === 2 && boardIsUsable(round),
+      mismatches: round.answerIndices || [],
+      answers: round.answerIndices || []
+    };
+  }
+
   function getMismatches(round) {
     var mismatches = [];
     round.board.forEach(function (cell, index) {
@@ -1897,13 +2421,29 @@
       reachable.push(index);
       neighbors(index).forEach(function (neighborIndex) {
         var neighbor = board[neighborIndex];
-        if (!seen[neighborIndex] && neighbor.value && neighbor.value.maze !== "wall") {
+        if (!seen[neighborIndex] && neighbor.value && neighbor.value.maze !== "wall" && neighbor.value.maze !== "bridge") {
           seen[neighborIndex] = true;
           queue.push(neighborIndex);
         }
       });
     }
     return uniqueSorted(reachable);
+  }
+
+  function mazeReachableWithRepairs(board, repairs) {
+    var repairSet = {};
+
+    repairs.forEach(function (index) {
+      repairSet[index] = true;
+    });
+    return reachableMazeIndexes(board.map(function (cell) {
+      if (cell.value && cell.value.maze === "bridge" && repairSet[cell.index]) {
+        var clone = hydrateCell(cell.index, cell);
+        clone.value = Object.assign({}, clone.value, { maze: "path" });
+        return clone;
+      }
+      return cell;
+    }));
   }
 
   function goScores(board) {
@@ -2119,6 +2659,24 @@
     return row * GRID_SIZE + col;
   }
 
+  function rowIndices(row) {
+    return Array.from({ length: GRID_SIZE }, function (_, col) {
+      return positionToIndex(row, col);
+    });
+  }
+
+  function columnIndices(col) {
+    return Array.from({ length: GRID_SIZE }, function (_, row) {
+      return positionToIndex(row, col);
+    });
+  }
+
+  function range(count) {
+    return Array.from({ length: count }, function (_, index) {
+      return index;
+    });
+  }
+
   function uniqueSorted(items) {
     return Array.from(new Set(items)).sort(function (a, b) {
       return a - b;
@@ -2202,18 +2760,25 @@
     CELL_COUNT: CELL_COUNT,
     LAUNCH_DATE: LAUNCH_DATE,
     ANSWER_MODES: ANSWER_MODES,
+    TARGET_TYPES: TARGET_TYPES,
     puzzleTypes: puzzleTypes,
+    normalizeTypeRound: normalizeRound,
     generateDailyPuzzle: generateDailyPuzzle,
     generateSurvivalLevels: generateSurvivalLevels,
+    generateFreePlaySet: generateFreePlaySet,
     validatePuzzle: validatePuzzle,
     validateRound: validateRound,
     validateExpectedMismatch: validateExpectedMismatch,
+    validateRowTarget: validateRowTarget,
     validateChooseOne: validateChooseOne,
     validateMultiSelect: validateMultiSelect,
     validateTwoStep: validateTwoStep,
+    validateWordTwoStep: validateWordTwoStep,
     validateExactMismatchSet: validateExactMismatchSet,
     validateExactAnswerSet: validateExactAnswerSet,
     validateMazeExit: validateMazeExit,
+    validateCircuitSwitchPair: validateCircuitSwitchPair,
+    validateMazeBridgeRepair: validateMazeBridgeRepair,
     validateChessAttack: validateChessAttack,
     validateGoCaptureMax: validateGoCaptureMax,
     validateGoLiberties: validateGoLiberties,

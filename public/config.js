@@ -3,6 +3,7 @@
 
   var DEFAULTS = {
     levelTimeLimitSeconds: 60,
+    freePlayLevelTimeLimitSeconds: 0,
     lowTimeWarningSeconds: 10,
     maxGeneratedLevels: 100,
     survivalModeEnabled: true
@@ -31,6 +32,7 @@
 
   root.OWM_CONFIG = {
     levelTimeLimitSeconds: configuredLimit,
+    freePlayLevelTimeLimitSeconds: DEFAULTS.freePlayLevelTimeLimitSeconds,
     lowTimeWarningSeconds: DEFAULTS.lowTimeWarningSeconds,
     maxGeneratedLevels: DEFAULTS.maxGeneratedLevels,
     survivalModeEnabled: DEFAULTS.survivalModeEnabled,

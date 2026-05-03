@@ -19,6 +19,9 @@ function dateKeyFromOffset(offset) {
 }
 
 function getAnswerIndices(round) {
+  if (round.targeting && Array.isArray(round.targeting.answerIndices) && round.targeting.answerIndices.length > 0) {
+    return round.targeting.answerIndices.slice().sort((a, b) => a - b);
+  }
   if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
     return round.answerIndices.slice().sort((a, b) => a - b);
   }
@@ -41,7 +44,7 @@ function validateAnswerMode(round, result) {
   assert(answers.length > 0, `No valid answer returned for ${round.id}`);
   assert(sameSet(answers, expected), `Answer mismatch for ${round.id}: expected ${expected}, got ${answers}`);
 
-  if (round.answerMode === "identifyOne" || round.answerMode === "chooseOne") {
+  if ((round.answerMode === "identifyOne" || round.answerMode === "chooseOne") && !(round.targeting && (round.targeting.acceptsAnyCellInAnswerRow || round.targeting.acceptsAnyCellInAnswerColumn))) {
     assert(answers.length === 1, `Expected exactly one answer for ${round.answerMode} puzzle ${round.id}`);
     assert(round.answerIndex === answers[0], `answerIndex mismatch for ${round.id}`);
   }

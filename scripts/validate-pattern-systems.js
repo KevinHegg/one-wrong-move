@@ -41,6 +41,9 @@ function dateKeyFromOffset(offset) {
 }
 
 function getAnswerIndices(round) {
+  if (round.targeting && Array.isArray(round.targeting.answerIndices) && round.targeting.answerIndices.length > 0) {
+    return round.targeting.answerIndices.slice().sort((a, b) => a - b);
+  }
   if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
     return round.answerIndices.slice().sort((a, b) => a - b);
   }
@@ -67,14 +70,14 @@ function validateAnswer(round, result) {
   assert(answers.length > 0, `No validator answers for ${round.id}`);
   assert(sameSet(answers, expected), `Validator answer does not match expected answer for ${round.id}`);
 
-  if (round.answerMode === "identifyOne" || round.answerMode === "chooseOne") {
+  if ((round.answerMode === "identifyOne" || round.answerMode === "chooseOne") && !(round.targeting && (round.targeting.acceptsAnyCellInAnswerRow || round.targeting.acceptsAnyCellInAnswerColumn))) {
     assert(answers.length === 1, `Single-answer puzzle has multiple answers: ${round.id}`);
     assert(round.answerIndex === answers[0], `Single-answer answerIndex mismatch: ${round.id}`);
   } else if (round.answerMode === "multiSelect") {
     assert(round.answerIndices.length >= 1, `Multi-select answer set missing: ${round.id}`);
     assert(round.minSelections >= 1, `Multi-select minSelections missing: ${round.id}`);
     assert(round.maxSelections >= round.minSelections, `Multi-select maxSelections invalid: ${round.id}`);
-  } else {
+  } else if (round.answerMode === "twoStep") {
     assert(round.answerSteps && round.answerSteps.length >= 2, `Two-step answer steps missing: ${round.id}`);
     assert(round.submitLabel, `Two-step submit label missing: ${round.id}`);
   }

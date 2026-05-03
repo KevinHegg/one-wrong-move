@@ -23,6 +23,9 @@ function dateKeyFromOffset(offset) {
 }
 
 function answerIndices(round) {
+  if (round.targeting && Array.isArray(round.targeting.answerIndices) && round.targeting.answerIndices.length > 0) {
+    return round.targeting.answerIndices.slice().sort((a, b) => a - b);
+  }
   if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
     return round.answerIndices.slice().sort((a, b) => a - b);
   }
@@ -47,7 +50,7 @@ function validateLevel(level) {
   assert(level.board.length > 0 && level.board.length <= puzzles.CELL_COUNT, `Board size invalid for ${level.id}`);
   assert(!RETIRED.has(level.id), `Retired puzzle in survival stream: ${level.id}`);
 
-  if (level.answerMode === "identifyOne" || level.answerMode === "chooseOne") {
+  if ((level.answerMode === "identifyOne" || level.answerMode === "chooseOne") && !(level.targeting && (level.targeting.acceptsAnyCellInAnswerRow || level.targeting.acceptsAnyCellInAnswerColumn))) {
     assert(expected.length === 1, `Single-answer level must have one answer: ${level.id}`);
   } else if (level.answerMode === "multiSelect") {
     assert(expected.length >= 1, `Multi-select answer missing: ${level.id}`);
@@ -55,6 +58,8 @@ function validateLevel(level) {
   } else if (level.answerMode === "twoStep") {
     assert(level.answerSteps && level.answerSteps.length >= 2, `Two-step answer missing: ${level.id}`);
     assert(level.submitLabel, `Two-step submit label missing: ${level.id}`);
+  } else if (level.answerMode === "identifyOne" || level.answerMode === "chooseOne") {
+    assert(level.targeting && (level.targeting.acceptsAnyCellInAnswerRow || level.targeting.acceptsAnyCellInAnswerColumn), `Unsupported broad target for ${level.id}`);
   } else {
     throw new Error(`Unknown answer mode: ${level.answerMode}`);
   }
@@ -163,7 +168,7 @@ const gameSource = fs.readFileSync(path.join(__dirname, "../public/game.js"), "u
 assert(gameSource.includes('endRun("wrong-move"'), "Wrong move end behavior missing");
 assert(gameSource.includes('endRun("time-expired"'), "Timeout end behavior missing");
 assert(gameSource.includes("completeLevel"), "Correct move advance behavior missing");
-assert(!/TOTAL_ROUNDS|Solved 3 of 3/.test(gameSource), "Old fixed three-round assumptions remain in main game");
+assert(!/TOTAL_ROUNDS/.test(gameSource), "Old fixed three-round assumptions remain in main game");
 assert(!/score\s*=\s*Math\.max\(0,\s*1000/i.test(gameSource), "Old opaque score display remains");
 
 console.log("Validated Survival Run: 300 dates, 5 attempts, first 50 levels, answer modes, config, scoring, and puzzle-specific constraints.");
