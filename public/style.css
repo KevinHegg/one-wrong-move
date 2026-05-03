@@ -210,18 +210,39 @@ h2 {
 }
 
 .symbol-chip {
-  display: inline-grid;
-  min-width: 30px;
+  display: inline-flex;
+  min-width: 34px;
   min-height: 28px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   border: 1px solid var(--soft-line);
   border-radius: 999px;
   background: var(--badge);
   color: var(--badge-ink);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 800;
+  line-height: 1.05;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.symbol-chip__glyph {
+  display: inline-grid;
+  min-width: 1.1em;
+  place-items: center;
+  font-size: 1.05rem;
   line-height: 1;
-  padding: 4px 8px;
+}
+
+.symbol-chip__label {
+  max-width: 74px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-overflow: ellipsis;
 }
 
 .example-board {
@@ -341,6 +362,30 @@ h2 {
   max-width: 100%;
   place-items: center;
   overflow-wrap: anywhere;
+}
+
+.symbol-token {
+  gap: 1px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.symbol-token--emoji .symbol-token__glyph {
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.38rem;
+  line-height: 1;
+}
+
+.symbol-token--svg .symbol-token__glyph {
+  display: inline-grid;
+  place-items: center;
+}
+
+.symbol-token__label {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .cell-corner {
@@ -566,8 +611,35 @@ h2 {
 
 .token-animal .cell-main {
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 0.92rem;
+  font-size: 1.36rem;
   font-weight: 900;
+}
+
+.token-object .cell-main,
+.tile--object .cell-main {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.34rem;
+  font-weight: 900;
+}
+
+.token-object .cell-sub-label,
+.token-animal .cell-sub-label {
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
+  overflow: hidden;
+  color: #56524b;
+  font-size: 0.46rem;
+  letter-spacing: 0;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.rack-tile {
+  background: #f3eadc;
+  border-style: dashed;
 }
 
 .token-direction .cell-main {
@@ -1056,6 +1128,28 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
   gap: 14px;
+}
+
+.lab-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.lab-pack-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: #fffdfa;
+  padding: 10px;
+}
+
+.lab-pack-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  text-transform: capitalize;
 }
 
 .lab-card.is-retired {

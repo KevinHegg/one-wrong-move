@@ -2,6 +2,7 @@
   "use strict";
 
   var Puzzles = window.OneWrongMovePuzzles;
+  var Symbols = window.OWM_SYMBOLS || { packs: {}, themePacks: [] };
   var Config = window.OWM_CONFIG || { levelTimeLimitSeconds: 60 };
   var seedInput = document.getElementById("labSeed");
   var attemptInput = document.getElementById("labAttempt");
@@ -9,6 +10,8 @@
   var regenerateButton = document.getElementById("labRegenerate");
   var labSurvival = document.getElementById("labSurvival");
   var labFreePlay = document.getElementById("labFreePlay");
+  var labSymbols = document.getElementById("labSymbols");
+  var labThemes = document.getElementById("labThemes");
   var labList = document.getElementById("labList");
 
   regenerateButton.addEventListener("click", renderLab);
@@ -45,6 +48,8 @@
     limitInput.value = String(limit);
     renderSurvivalPreview(seed, attempt, limit);
     renderFreePlayPreview(seed, attempt);
+    renderSymbolPacks();
+    renderThemePacks();
     labList.innerHTML = "";
 
     renderSection("Production puzzle types", activeTypes, seed, attempt, showAnswers);
@@ -70,6 +75,34 @@
       "<p class=\"lab-briefing\">Three puzzles. Wrong attempts add mistakes. Score = ceil(active seconds) + mistakes × 10s.</p>" +
       "<div class=\"lab-stream-list\">" + set.levels.map(function (level) {
         return "<span class=\"stream-chip\">" + level.levelNumber + ". " + escapeHtml(level.name) + " · " + escapeHtml(level.sourceWorld) + " · " + escapeHtml(level.answerMode) + " · " + escapeHtml((level.targeting && level.targeting.targetType) || "cell") + "</span>";
+      }).join("") + "</div>";
+  }
+
+  function renderSymbolPacks() {
+    var packs = ["animals", "food", "kitchen", "music", "sky", "sports", "workshop", "household"];
+
+    labSymbols.innerHTML =
+      "<h2 class=\"lab-section-title\">Symbol packs</h2>" +
+      "<p class=\"lab-briefing\">Curated local glyphs with readable labels. Internal IDs can be short; player-facing symbols stay visual and named.</p>" +
+      "<div class=\"lab-pack-grid\">" + packs.map(function (packName) {
+        var symbols = (Symbols.packs && Symbols.packs[packName]) || [];
+        return "<article class=\"lab-pack-card\">" +
+          "<h3>" + escapeHtml(packName.replace(/-/g, " ")) + "</h3>" +
+          "<div class=\"symbol-chips\">" + symbols.slice(0, 12).map(renderSymbolChipHtml).join("") + "</div>" +
+        "</article>";
+      }).join("") + "</div>";
+  }
+
+  function renderThemePacks() {
+    labThemes.innerHTML =
+      "<h2 class=\"lab-section-title\">Theme packs</h2>" +
+      "<p class=\"lab-briefing\">Theme rows power object imposter, swap, recipe, and rack-completion puzzles.</p>" +
+      "<div class=\"lab-pack-grid\">" + (Symbols.themePacks || []).map(function (pack) {
+        return "<article class=\"lab-pack-card\">" +
+          "<p class=\"round-name\">" + escapeHtml(pack.sourceWorld) + " · " + escapeHtml(pack.availability || "Lab") + "</p>" +
+          "<h3>" + escapeHtml(pack.name) + "</h3>" +
+          "<div class=\"symbol-chips\">" + pack.items.slice(0, 5).map(renderSymbolChipHtml).join("") + "</div>" +
+        "</article>";
       }).join("") + "</div>";
   }
 
@@ -120,9 +153,7 @@
       "</div>" +
       "<p class=\"lab-briefing\">" + escapeHtml(type.briefing) + "</p>" +
       (type.retired ? "<p class=\"lab-retired-note\">" + escapeHtml(type.retiredReason || "Retired from daily play.") + "</p>" : "") +
-      "<div class=\"symbol-chips\">" + type.symbols.map(function (symbol) {
-        return "<span class=\"symbol-chip\">" + escapeHtml(symbol) + "</span>";
-      }).join("") + "</div>" +
+      "<div class=\"symbol-chips\">" + (type.symbolBank || type.symbols).map(renderSymbolChipHtml).join("") + "</div>" +
       "<div class=\"lab-grid grid\" aria-label=\"" + escapeHtml(type.name) + " sample board\"></div>" +
       "<dl class=\"lab-meta\">" +
         "<div><dt>Break signature</dt><dd>" + escapeHtml(round.breakSignature) + "</dd></div>" +
@@ -256,10 +287,19 @@
   }
 
   function renderCellContents(cell, cellData) {
+    var isSymbolToken = (cellData.classNames || []).indexOf("symbol-token") !== -1 || (cellData.kind || "").indexOf("object") !== -1;
     var main = document.createElement("span");
 
-    main.className = "cell-main";
-    main.textContent = cellData.glyph || cellData.label || "";
+    main.className = isSymbolToken ? "cell-main symbol-token symbol-token--emoji" : "cell-main";
+    if (isSymbolToken) {
+      var glyph = document.createElement("span");
+
+      glyph.className = "symbol-token__glyph";
+      glyph.textContent = cellData.glyph || cellData.label || "";
+      main.appendChild(glyph);
+    } else {
+      main.textContent = cellData.glyph || cellData.label || "";
+    }
     cell.appendChild(main);
 
     if (cellData.cornerLabel) {
@@ -321,6 +361,30 @@
     }
 
     return typeof round.answerIndex === "number" ? [round.answerIndex] : [];
+  }
+
+  function renderSymbolChipHtml(symbol) {
+    var data = normalizeSymbolDisplay(symbol);
+
+    return "<span class=\"symbol-chip\" aria-label=\"" + escapeHtml(data.ariaLabel) + "\">" +
+      "<span class=\"symbol-chip__glyph\">" + escapeHtml(data.glyph) + "</span>" +
+      "<span class=\"symbol-chip__label\">" + escapeHtml(data.label) + "</span>" +
+    "</span>";
+  }
+
+  function normalizeSymbolDisplay(symbol) {
+    if (typeof symbol === "string") {
+      return {
+        glyph: symbol,
+        label: symbol,
+        ariaLabel: symbol
+      };
+    }
+    return {
+      glyph: symbol.glyph || symbol.label || "",
+      label: symbol.shortLabel || symbol.label || symbol.ariaLabel || symbol.glyph || "",
+      ariaLabel: symbol.ariaLabel || symbol.label || symbol.glyph || ""
+    };
   }
 
   function escapeHtml(value) {
