@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>One Wrong Move</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="public/style.css?v=009">
-    <script src="public/symbols.js?v=009" defer></script>
-    <script src="public/puzzles.js?v=009" defer></script>
-    <script src="public/scoring.js?v=009" defer></script>
-    <script src="public/game.js?v=009" defer></script>
+    <link rel="stylesheet" href="public/style.css?v=010">
+    <script src="public/config.js?v=010" defer></script>
+    <script src="public/symbols.js?v=010" defer></script>
+    <script src="public/puzzles.js?v=010" defer></script>
+    <script src="public/scoring.js?v=010" defer></script>
+    <script src="public/game.js?v=010" defer></script>
   </head>
   <body>
     <main class="phone-shell" aria-label="One Wrong Move">
@@ -19,16 +20,22 @@
             <p id="puzzleText" class="puzzle-number">Puzzle #---</p>
             <h1>One Wrong Move</h1>
           </div>
-          <div class="timer-box" aria-live="polite">
-            <span>Time</span>
-            <strong id="timerText">0.0s</strong>
+          <div class="timer-cluster">
+            <div class="timer-box" aria-live="polite">
+              <span>Run</span>
+              <strong id="timerText">0:00</strong>
+            </div>
+            <div id="levelTimerBox" class="timer-box level-timer-box" aria-live="polite">
+              <span>Level</span>
+              <strong id="levelTimerText">60s</strong>
+            </div>
           </div>
         </header>
 
         <div class="status-bar">
           <span id="roundText">Ready</span>
           <span id="variantText">Daily Puzzle</span>
-          <span id="mistakeText">Mistakes 0</span>
+          <span id="mistakeText">Lives 1</span>
         </div>
 
         <section class="rule-card" aria-labelledby="roundName">
@@ -64,35 +71,35 @@
         <section id="resultPanel" class="result-panel" aria-label="Completed game summary" hidden>
           <div class="result-grid">
             <div>
-              <span>Solved</span>
-              <strong id="solvedText">3 of 3</strong>
+              <span>Levels</span>
+              <strong id="solvedText">0</strong>
             </div>
             <div>
-              <span>Active time</span>
-              <strong id="finalTimeText">0.0s</strong>
+              <span>Run time</span>
+              <strong id="finalTimeText">0:00</strong>
             </div>
             <div>
-              <span>Base time</span>
-              <strong id="baseScoreText">0s</strong>
+              <span>Ended on</span>
+              <strong id="baseScoreText">Level 1</strong>
             </div>
             <div>
-              <span>Final score</span>
-              <strong id="scoreText">0s</strong>
+              <span>Result</span>
+              <strong id="scoreText">0 levels</strong>
             </div>
           </div>
           <div class="score-breakdown" aria-label="Score breakdown">
-            <p id="scoreHintText">Lower is better</p>
+            <p id="scoreHintText">More levels is better. Ties go to faster runs.</p>
             <div class="score-row">
-              <span>Mistakes</span>
-              <strong id="finalMistakeText">0</strong>
+              <span>End reason</span>
+              <strong id="finalMistakeText">Wrong move</strong>
             </div>
             <div class="score-row">
-              <span>Penalty</span>
-              <strong id="penaltyText">0 × 10s = +0s</strong>
+              <span>Last puzzle</span>
+              <strong id="penaltyText">Level 1</strong>
             </div>
             <div class="score-row">
-              <span>Formula</span>
-              <strong id="scoreFormulaText">0s + 0s = 0s</strong>
+              <span>Limit</span>
+              <strong id="scoreFormulaText">60s/level</strong>
             </div>
           </div>
           <label class="share-label" for="sharePreview">Share text</label>

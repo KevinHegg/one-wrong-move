@@ -1,13 +1,18 @@
 (function () {
   "use strict";
 
+  var Config = window.OWM_CONFIG || {
+    levelTimeLimitSeconds: 60,
+    lowTimeWarningSeconds: 10,
+    maxGeneratedLevels: 100
+  };
   var Puzzles = window.OneWrongMovePuzzles;
   var Scoring = window.OneWrongMoveScoring;
-  var TOTAL_ROUNDS = 3;
   var ANSWER_MODES = {
     IDENTIFY_ONE: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.identifyOne) || "identifyOne",
     CHOOSE_ONE: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.chooseOne) || "chooseOne",
-    MULTI_SELECT: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.multiSelect) || "multiSelect"
+    MULTI_SELECT: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.multiSelect) || "multiSelect",
+    TWO_STEP: (Puzzles.ANSWER_MODES && Puzzles.ANSWER_MODES.twoStep) || "twoStep"
   };
 
   var grid = document.getElementById("grid");
@@ -17,6 +22,8 @@
   var puzzleText = document.getElementById("puzzleText");
   var variantText = document.getElementById("variantText");
   var timerText = document.getElementById("timerText");
+  var levelTimerText = document.getElementById("levelTimerText");
+  var levelTimerBox = document.getElementById("levelTimerBox");
   var roundText = document.getElementById("roundText");
   var mistakeText = document.getElementById("mistakeText");
   var roundName = document.getElementById("roundName");
@@ -48,40 +55,45 @@
   var todayKey = Puzzles.getLocalDateKey(new Date());
   var puzzleNumber = Puzzles.getPuzzleNumber(todayKey);
   var attemptKey = "owm:" + todayKey + ":sessionAttempt";
-  var signatureKey = "owm:" + todayKey + ":breakSignatures";
+  var signatureKey = "owm:" + todayKey + ":survivalBreakSignatures";
   var sessionAttempt = getStoredAttempt();
   var usedBreakSignatures = getStoredSignatures();
-  var puzzle = createPuzzleForAttempt(sessionAttempt);
+  var levelLimitSeconds = Config.levelTimeLimitSeconds || 60;
+  var lowTimeWarningSeconds = Config.lowTimeWarningSeconds || 10;
+  var maxGeneratedLevels = Config.maxGeneratedLevels || 100;
+  var run = createRun(sessionAttempt);
   var signaturesRemembered = false;
   var timerId = null;
-  var wrongFeedbackId = null;
   var state = createFreshState("intro");
 
   puzzleText.textContent = "Puzzle #" + padNumber(puzzleNumber, 3);
   startButton.addEventListener("click", handlePrimaryAction);
-  submitButton.addEventListener("click", handleSelectionSubmit);
+  submitButton.addEventListener("click", handleCommitMove);
   clearSelectionButton.addEventListener("click", clearSelection);
-  restartButton.addEventListener("click", startVariantMix);
-  playMixButton.addEventListener("click", startVariantMix);
+  restartButton.addEventListener("click", startVariantRun);
+  playMixButton.addEventListener("click", startVariantRun);
   shareButton.addEventListener("click", shareResult);
 
   renderIntro();
 
+  function createRun(attempt) {
+    return Puzzles.generateSurvivalLevels(todayKey, attempt, attempt > 1 ? usedBreakSignatures : [], maxGeneratedLevels);
+  }
+
   function createFreshState(phase) {
     return {
       phase: phase,
-      roundIndex: 0,
-      totalMistakes: 0,
+      levelIndex: 0,
+      levelsCompleted: 0,
+      wrongMoves: 0,
       activeElapsedMs: 0,
       activeStartedAt: 0,
-      rounds: puzzle.rounds.map(function () {
-        return {
-          solved: false,
-          mistakes: 0,
-          selectedIndices: [],
-          wrongIndices: []
-        };
-      })
+      levelStartedAt: 0,
+      endReason: "",
+      endedOnLevel: 1,
+      selectedIndices: [],
+      selectedSteps: {},
+      wrongIndices: []
     };
   }
 
@@ -93,35 +105,24 @@
     }
 
     if (state.phase === "briefing") {
-      startActiveRound();
+      startActiveLevel();
       return;
     }
 
     if (state.phase === "feedback") {
-      if (state.roundIndex + 1 >= TOTAL_ROUNDS) {
-        completeGame();
-      } else {
-        enterBriefing(state.roundIndex + 1);
-      }
+      enterBriefing(state.levelIndex + 1);
     }
   }
 
-  function startVariantMix() {
-    pauseTimer();
-    clearTimers();
+  function startVariantRun() {
+    pauseTimers();
     sessionAttempt += 1;
     window.sessionStorage.setItem(attemptKey, String(sessionAttempt));
     usedBreakSignatures = getStoredSignatures();
-    puzzle = createPuzzleForAttempt(sessionAttempt);
+    run = createRun(sessionAttempt);
     signaturesRemembered = false;
     state = createFreshState("intro");
     renderIntro();
-  }
-
-  function createPuzzleForAttempt(attempt) {
-    var avoid = attempt > 1 ? usedBreakSignatures : [];
-
-    return Puzzles.generateDailyPuzzle(todayKey, attempt, avoid);
   }
 
   function rememberCurrentBreakSignatures() {
@@ -130,9 +131,9 @@
     }
 
     usedBreakSignatures = getStoredSignatures();
-    puzzle.rounds.forEach(function (round) {
-      if (usedBreakSignatures.indexOf(round.breakSignature) === -1) {
-        usedBreakSignatures.push(round.breakSignature);
+    run.levels.forEach(function (level) {
+      if (usedBreakSignatures.indexOf(level.breakSignature) === -1) {
+        usedBreakSignatures.push(level.breakSignature);
       }
     });
     window.sessionStorage.setItem(signatureKey, JSON.stringify(usedBreakSignatures));
@@ -140,52 +141,54 @@
   }
 
   function renderIntro() {
-    stopTimer();
+    pauseTimers();
     state.phase = "intro";
-    state.roundIndex = 0;
+    state.levelIndex = 0;
+    state.selectedIndices = [];
+    state.selectedSteps = {};
+    state.wrongIndices = [];
     resultPanel.hidden = true;
     hideFeedback();
     hideBriefingDetails();
-    hideBoard("The board stays hidden until you open a round briefing.");
+    hideBoard("The board stays hidden until you start a level.");
     updateVariantLabel();
     roundText.textContent = "Ready";
-    mistakeText.textContent = "Mistakes " + state.totalMistakes;
-    timerText.textContent = formatSeconds(state.activeElapsedMs);
-    roundName.textContent = sessionAttempt > 1 ? "Replay variant ready" : "Daily puzzle ready";
-    ruleText.textContent = "One board. One rule. One move — or one precise set of moves.";
-    instructionText.textContent = "Score = rounded-up solving time + 10s per mistake. Lower is better.";
+    mistakeText.textContent = "Lives 1";
+    timerText.textContent = formatClock(0);
+    levelTimerText.textContent = levelLimitSeconds + "s";
+    levelTimerBox.classList.remove("is-low-time");
+    roundName.textContent = sessionAttempt > 1 ? "Variant survival run" : "Daily survival run";
+    ruleText.textContent = "One board. One rule. One move. Survive until your first wrong move.";
+    instructionText.textContent = "Solve as many levels as you can. One wrong move or an expired " + levelLimitSeconds + "s level timer ends the run.";
     updateButtons();
   }
 
-  function enterBriefing(roundIndex) {
-    var round = puzzle.rounds[roundIndex];
+  function enterBriefing(levelIndex) {
+    var level = run.levels[levelIndex];
 
-    pauseTimer();
+    pauseTimers();
     state.phase = "briefing";
-    state.roundIndex = roundIndex;
-    state.rounds[roundIndex].selectedIndices = [];
-    state.rounds[roundIndex].wrongIndices = [];
+    state.levelIndex = levelIndex;
+    resetSelections();
     hideFeedback();
-    hideBoard("Round " + (roundIndex + 1) + " is hidden until you press Start Round.");
+    hideBoard("Level " + (levelIndex + 1) + " is hidden until you press Start Level.");
     resultPanel.hidden = true;
-    updateHeader(round);
-    renderBriefing(round);
+    updateHeader(level);
+    renderBriefing(level);
     updateButtons();
   }
 
-  function startActiveRound() {
-    var round = puzzle.rounds[state.roundIndex];
-    var roundState = state.rounds[state.roundIndex];
+  function startActiveLevel() {
+    var level = currentLevel();
 
-    roundState.selectedIndices = [];
-    roundState.wrongIndices = [];
+    resetSelections();
     state.phase = "active";
     hideFeedback();
     hideBriefingDetails();
     showBoard();
-    updateHeader(round);
-    renderRound(round);
-    startTimer();
+    updateHeader(level);
+    renderLevel(level);
+    startTimers();
     updateButtons();
   }
 
@@ -195,182 +198,170 @@
     }
 
     var index = Number(event.currentTarget.dataset.index);
-    var round = puzzle.rounds[state.roundIndex];
+    var level = currentLevel();
 
-    if (round.answerMode === ANSWER_MODES.MULTI_SELECT) {
-      toggleMultiSelectCell(index, round);
+    if (level.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      toggleMultiSelectCell(index, level);
       return;
     }
 
-    handleSingleAnswerTap(index, round);
-  }
-
-  function handleSingleAnswerTap(index, round) {
-    var roundState = state.rounds[state.roundIndex];
-    var answerIndices = getAnswerIndices(round);
-
-    if (answerIndices.indexOf(index) !== -1) {
-      pauseTimer();
-      state.phase = "feedback";
-      roundState.solved = true;
-      roundState.selectedIndices = [];
-      roundState.wrongIndices = [];
-      showFeedback("Correct", round.explanation, "success");
-      renderRound(round, {
-        correctIndices: answerIndices,
-        relatedIndexes: round.relatedIndexes || []
-      });
-      updateButtons();
+    if (level.answerMode === ANSWER_MODES.TWO_STEP) {
+      selectTwoStepCell(index, level);
       return;
     }
 
-    markMistake(round, [index], round.wrongTapHint || round.hint);
+    handleSingleAnswerTap(index, level);
   }
 
-  function toggleMultiSelectCell(index, round) {
-    var roundState = state.rounds[state.roundIndex];
-    var cell = round.cells[index] || round.board[index];
+  function handleSingleAnswerTap(index, level) {
+    var answers = getAnswerIndices(level);
+
+    if (answers.indexOf(index) !== -1) {
+      completeLevel(level, answers);
+      return;
+    }
+
+    endRun("wrong-move", [index], "Wrong move", level.wrongTapHint || "That move does not satisfy the rule.");
+  }
+
+  function toggleMultiSelectCell(index, level) {
+    var cell = level.cells[index] || level.board[index];
 
     if (!cell || cell.selectable === false || cell.interactive === false) {
-      showFeedback("Not selectable", round.wrongTapHint || "Select only legal move squares, then submit.", "warning");
+      showFeedback("Not selectable", level.wrongTapHint || "Select only legal move squares, then submit.", "warning");
       return;
     }
 
-    roundState.wrongIndices = [];
-
-    if (roundState.selectedIndices.indexOf(index) === -1) {
-      if (!round.maxSelections || roundState.selectedIndices.length < round.maxSelections) {
-        roundState.selectedIndices.push(index);
+    state.wrongIndices = [];
+    if (state.selectedIndices.indexOf(index) === -1) {
+      if (!level.maxSelections || state.selectedIndices.length < level.maxSelections) {
+        state.selectedIndices.push(index);
       }
     } else {
-      roundState.selectedIndices = roundState.selectedIndices.filter(function (item) {
+      state.selectedIndices = state.selectedIndices.filter(function (item) {
         return item !== index;
       });
     }
-
-    roundState.selectedIndices.sort(function (a, b) {
-      return a - b;
-    });
+    state.selectedIndices.sort(sortNumbers);
     hideFeedback();
-    renderRound(round);
+    renderLevel(level);
     updateButtons();
   }
 
-  function handleSelectionSubmit() {
+  function selectTwoStepCell(index, level) {
+    var cell = level.cells[index] || level.board[index];
+    var role = cell && cell.value && cell.value.selectionRole;
+
+    if (!role) {
+      showFeedback("Not part of the move", level.wrongTapHint || "Choose the requested move parts, then submit.", "warning");
+      return;
+    }
+
+    state.selectedSteps[role] = index;
+    state.selectedIndices = Object.keys(state.selectedSteps).map(function (key) {
+      return state.selectedSteps[key];
+    }).sort(sortNumbers);
+    state.wrongIndices = [];
+    hideFeedback();
+    renderLevel(level);
+    updateButtons();
+  }
+
+  function handleCommitMove() {
     if (state.phase !== "active") {
       return;
     }
 
-    var round = puzzle.rounds[state.roundIndex];
-    var roundState = state.rounds[state.roundIndex];
-    var answerIndices = getAnswerIndices(round);
-    var selected = roundState.selectedIndices.slice().sort(sortNumbers);
-    var minSelections = round.minSelections || answerIndices.length;
+    var level = currentLevel();
+    var answers = getAnswerIndices(level);
 
-    if (round.answerMode !== ANSWER_MODES.MULTI_SELECT) {
-      return;
-    }
-
-    if (selected.length < minSelections) {
-      showFeedback("Keep looking", "Select every required square before submitting.", "warning");
-      return;
-    }
-
-    if (sameSet(selected, answerIndices)) {
-      pauseTimer();
-      state.phase = "feedback";
-      roundState.solved = true;
-      roundState.wrongIndices = [];
-      showFeedback("Correct", round.explanation, "success");
-      renderRound(round, {
-        correctIndices: answerIndices,
-        relatedIndexes: round.relatedIndexes || []
-      });
-      updateButtons();
-      return;
-    }
-
-    markMistake(round, selected, round.wrongTapHint || "The selected set does not exactly match the rule.");
-  }
-
-  function clearSelection() {
-    if (state.phase !== "active") {
-      return;
-    }
-
-    var round = puzzle.rounds[state.roundIndex];
-    var roundState = state.rounds[state.roundIndex];
-
-    roundState.selectedIndices = [];
-    roundState.wrongIndices = [];
-    hideFeedback();
-    renderRound(round);
-    updateButtons();
-  }
-
-  function markMistake(round, indexes, hint) {
-    var roundState = state.rounds[state.roundIndex];
-
-    state.totalMistakes += 1;
-    roundState.mistakes += 1;
-    roundState.wrongIndices = indexes.slice();
-    updateMistakes();
-    showFeedback("Try again", hint || "That move does not break the rule.", "warning");
-    renderRound(round);
-
-    if (wrongFeedbackId) {
-      window.clearTimeout(wrongFeedbackId);
-    }
-
-    wrongFeedbackId = window.setTimeout(function () {
-      if (state.phase === "active") {
-        roundState.wrongIndices = [];
-        renderRound(round);
+    if (level.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      if (sameSet(state.selectedIndices, answers)) {
+        completeLevel(level, answers);
+      } else {
+        endRun("wrong-move", state.selectedIndices.slice(), "Wrong move", level.wrongTapHint || "That submitted set is not exact.");
       }
-    }, 850);
+      return;
+    }
+
+    if (level.answerMode === ANSWER_MODES.TWO_STEP) {
+      if (twoStepIsCorrect(level)) {
+        completeLevel(level, answers);
+      } else {
+        endRun("wrong-move", state.selectedIndices.slice(), "Wrong move", level.wrongTapHint || "That two-step move is not the unique solution.");
+      }
+    }
   }
 
-  function completeGame() {
-    var elapsedMs = getElapsedMs();
-    var score = Scoring.calculateScore(elapsedMs, state.totalMistakes);
+  function twoStepIsCorrect(level) {
+    return (level.answerSteps || []).every(function (step) {
+      return state.selectedSteps[step.role] === step.index;
+    });
+  }
 
-    pauseTimer();
-    stopTimer();
+  function completeLevel(level, answers) {
+    pauseTimers();
+    state.phase = "feedback";
+    state.levelsCompleted += 1;
+    state.wrongIndices = [];
+    showFeedback("Correct", level.explanation, "success");
+    renderLevel(level, {
+      correctIndices: answers,
+      relatedIndexes: level.relatedIndexes || []
+    });
+    updateHeader(level);
+    updateButtons();
+  }
+
+  function endRun(endReason, wrongIndices, title, message) {
+    var level = currentLevel();
+
+    pauseTimers();
     state.phase = "complete";
-    hideBoard("");
-    hideBriefingDetails();
-    hideFeedback();
-    roundText.textContent = "Complete";
-    roundName.textContent = "Daily puzzle solved";
-    ruleText.textContent = "Solved 3 of 3";
-    instructionText.textContent = "Score = rounded-up solving time + 10s per mistake. Lower is better.";
-    solvedText.textContent = "3 of 3";
-    finalTimeText.textContent = formatSeconds(elapsedMs);
-    baseScoreText.textContent = formatWholeSeconds(score.baseSeconds);
-    finalMistakeText.textContent = String(state.totalMistakes);
-    penaltyText.textContent = state.totalMistakes + " × " + score.penaltySecondsPerMistake + "s = +" + formatWholeSeconds(score.mistakePenaltySeconds);
-    scoreFormulaText.textContent = formatWholeSeconds(score.baseSeconds) + " + " + formatWholeSeconds(score.mistakePenaltySeconds) + " = " + formatWholeSeconds(score.scoreSeconds);
-    scoreText.textContent = formatWholeSeconds(score.scoreSeconds);
+    state.endReason = endReason;
+    state.endedOnLevel = state.levelIndex + 1;
+    state.wrongMoves = endReason === "wrong-move" ? 1 : 0;
+    state.wrongIndices = wrongIndices || [];
+    showFeedback(title || "Run ended", message || endReasonLabel(endReason), "warning");
+    if (!gameArea.hidden) {
+      renderLevel(level, { wrongIndices: state.wrongIndices });
+    }
+    showRunOver(level);
+    updateButtons();
+  }
+
+  function showRunOver(level) {
+    var score = survivalScore();
+
+    roundText.textContent = "Run over";
+    mistakeText.textContent = "Wrong Moves " + state.wrongMoves + "/1";
+    roundName.textContent = "Run ended";
+    ruleText.textContent = score.levelsCompleted + " levels in " + formatClock(score.totalActiveMs);
+    instructionText.textContent = endReasonLabel(score.endReason) + " on Level " + score.endedOnLevel + ". More levels is better; ties go to faster time.";
+    solvedText.textContent = String(score.levelsCompleted);
+    finalTimeText.textContent = formatClock(score.totalActiveMs);
+    baseScoreText.textContent = "Level " + score.endedOnLevel;
+    scoreText.textContent = score.levelsCompleted + " levels";
+    finalMistakeText.textContent = endReasonLabel(score.endReason);
+    penaltyText.textContent = "Level " + score.endedOnLevel + ": " + level.name;
+    scoreFormulaText.textContent = levelLimitSeconds + "s/level";
     sharePreview.value = buildShareText(score);
     resultPanel.hidden = false;
-    updateButtons();
   }
 
-  function renderBriefing(round) {
+  function renderBriefing(level) {
     briefingDetails.hidden = false;
-    renderSymbolChips(round.symbolBank || round.symbols || []);
-    exampleCaption.textContent = round.exampleData.caption;
+    renderSymbolChips(level.symbolBank || level.symbols || []);
+    exampleCaption.textContent = level.exampleData.caption;
     exampleBoard.innerHTML = "";
-    exampleBoard.style.gridTemplateColumns = "repeat(" + round.exampleData.columns + ", minmax(0, 1fr))";
-
-    round.exampleData.cells.forEach(renderExampleCell);
+    exampleBoard.style.gridTemplateColumns = "repeat(" + level.exampleData.columns + ", minmax(0, 1fr))";
+    level.exampleData.cells.forEach(renderExampleCell);
   }
 
   function renderSymbolChips(symbols) {
     symbolText.innerHTML = "";
     symbols.forEach(function (symbol) {
       var chip = document.createElement("span");
-
       chip.className = "symbol-chip";
       chip.textContent = typeof symbol === "string" ? symbol : symbol.glyph || symbol.label || "";
       symbolText.appendChild(chip);
@@ -379,22 +370,19 @@
 
   function renderExampleCell(label) {
     var cell = document.createElement("span");
-
     cell.className = "example-cell";
     cell.textContent = typeof label === "string" ? label : label.glyph || label.label || "";
     exampleBoard.appendChild(cell);
   }
 
-  function renderRound(round, markers) {
-    var roundState = state.rounds[state.roundIndex];
-
+  function renderLevel(level, markers) {
     markers = markers || {};
-    renderCells(round.cells, {
+    renderCells(level.cells, {
       disabled: state.phase !== "active",
-      answerMode: round.answerMode,
+      answerMode: level.answerMode,
       correctIndices: markers.correctIndices || [],
-      wrongIndices: markers.wrongIndices || roundState.wrongIndices || [],
-      selectedIndices: state.phase === "feedback" ? [] : roundState.selectedIndices || [],
+      wrongIndices: markers.wrongIndices || state.wrongIndices || [],
+      selectedIndices: state.phase === "feedback" ? [] : state.selectedIndices || [],
       relatedIndexes: markers.relatedIndexes || []
     });
   }
@@ -420,7 +408,7 @@
       renderCellContents(cell, cellData);
       cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column, options));
 
-      if (options.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      if (options.answerMode === ANSWER_MODES.MULTI_SELECT || options.answerMode === ANSWER_MODES.TWO_STEP) {
         cell.setAttribute("aria-pressed", options.selectedIndices.indexOf(index) !== -1 ? "true" : "false");
       }
 
@@ -438,7 +426,6 @@
 
     if (cellData.cornerLabel) {
       var corner = document.createElement("span");
-
       corner.className = "cell-corner";
       corner.textContent = cellData.cornerLabel;
       cell.appendChild(corner);
@@ -446,7 +433,6 @@
 
     if (cellData.subLabel) {
       var subLabel = document.createElement("span");
-
       subLabel.className = "cell-sub-label";
       subLabel.textContent = cellData.subLabel;
       cell.appendChild(subLabel);
@@ -460,38 +446,30 @@
 
     kindParts.slice(1).forEach(function (part) {
       var safePart = part.replace(/[^a-z0-9-]/gi, "").toLowerCase();
-
       if (safePart) {
         classNames.push(safePart);
       }
     });
-
     if (cellData.zone) {
       classNames.push("zone--" + cellData.zone);
     }
-
     (cellData.classNames || []).forEach(function (className) {
       if (className) {
         classNames.push(className);
       }
     });
-
     if (options.correctIndices.indexOf(index) !== -1) {
       classNames.push("is-correct");
     }
-
     if (options.wrongIndices.indexOf(index) !== -1) {
       classNames.push("is-wrong-tap");
     }
-
     if (options.selectedIndices.indexOf(index) !== -1) {
       classNames.push("is-selected");
     }
-
     if (options.relatedIndexes.indexOf(index) !== -1) {
       classNames.push("is-related");
     }
-
     return classNames.join(" ");
   }
 
@@ -502,48 +480,54 @@
     return "Row " + row + ", column " + column + ", " + visible + (selected ? ", selected" : "");
   }
 
-  function updateHeader(round) {
-    var activeInstruction = round.instruction;
-
-    if (state.phase === "active" && round.answerMode === ANSWER_MODES.CHOOSE_ONE) {
-      activeInstruction = "Choose the best move square.";
-    } else if (state.phase === "active" && round.answerMode === ANSWER_MODES.MULTI_SELECT) {
-      activeInstruction = "Select every matching square, then submit.";
-    }
-
-    roundText.textContent = "Round " + (state.roundIndex + 1) + " of " + TOTAL_ROUNDS;
-    roundName.textContent = round.title + " · " + round.sourceWorld;
-    ruleText.textContent = state.phase === "briefing" ? round.briefingText : round.rule;
-    instructionText.textContent = state.phase === "briefing" ? getBriefingInstruction(round) : activeInstruction;
-    updateMistakes();
+  function updateHeader(level) {
+    roundText.textContent = "Level " + (state.levelIndex + 1);
+    roundName.textContent = level.title + " · " + level.sourceWorld;
+    ruleText.textContent = state.phase === "briefing" ? level.briefingText : level.rule;
+    instructionText.textContent = state.phase === "briefing" ? getBriefingInstruction(level) : getActiveInstruction(level);
+    mistakeText.textContent = state.phase === "complete" ? "Wrong Moves " + state.wrongMoves + "/1" : "Lives 1";
     updateVariantLabel();
+    updateTimerDisplay();
   }
 
-  function getBriefingInstruction(round) {
-    if (round.answerMode === ANSWER_MODES.MULTI_SELECT) {
-      return "This round uses multiple selections. The board stays hidden and the timer is paused.";
-    }
-
-    if (round.answerMode === ANSWER_MODES.CHOOSE_ONE) {
-      return "This round asks for one best move. The board stays hidden and the timer is paused.";
-    }
-
-    return "Study the mechanic. The board stays hidden and the timer is paused.";
+  function getBriefingInstruction(level) {
+    return answerModeLabel(level.answerMode) + ". Timer and countdown are paused until Start Level.";
   }
 
-  function updateMistakes() {
-    mistakeText.textContent = "Mistakes " + state.totalMistakes;
+  function getActiveInstruction(level) {
+    if (level.answerMode === ANSWER_MODES.CHOOSE_ONE) {
+      return "Choose the best move. One wrong move ends the run.";
+    }
+    if (level.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      return "Plan by selecting squares, then commit. A wrong submission ends the run.";
+    }
+    if (level.answerMode === ANSWER_MODES.TWO_STEP) {
+      return "Choose both parts of the move, then commit. A wrong submission ends the run.";
+    }
+    return "Tap the one move that breaks the rule. One wrong move ends the run.";
+  }
+
+  function answerModeLabel(answerMode) {
+    if (answerMode === ANSWER_MODES.CHOOSE_ONE) {
+      return "Choose one best move";
+    }
+    if (answerMode === ANSWER_MODES.MULTI_SELECT) {
+      return "Select exact squares, then Submit Move";
+    }
+    if (answerMode === ANSWER_MODES.TWO_STEP) {
+      return "Make a two-step move, then Submit Move";
+    }
+    return "Tap one square";
   }
 
   function updateVariantLabel() {
-    variantText.textContent = sessionAttempt > 1 ? "Variant " + sessionAttempt : "Daily Puzzle";
+    variantText.textContent = sessionAttempt > 1 ? "Variant " + sessionAttempt : "Survival Run";
   }
 
   function updateButtons() {
-    var round = puzzle.rounds[state.roundIndex];
-    var roundState = state.rounds[state.roundIndex];
-    var isMultiSelect = round && round.answerMode === ANSWER_MODES.MULTI_SELECT;
-    var selectedCount = roundState ? roundState.selectedIndices.length : 0;
+    var level = currentLevel();
+    var isCommitMode = level && (level.answerMode === ANSWER_MODES.MULTI_SELECT || level.answerMode === ANSWER_MODES.TWO_STEP);
+    var selectedCount = state.selectedIndices.length;
 
     startButton.hidden = true;
     submitButton.hidden = true;
@@ -551,25 +535,27 @@
     shareButton.hidden = true;
     playMixButton.hidden = true;
     restartButton.hidden = true;
+    submitButton.disabled = false;
+    clearSelectionButton.disabled = false;
 
     if (state.phase === "intro") {
       startButton.hidden = false;
-      startButton.textContent = sessionAttempt > 1 ? "Start Variant" : "Start";
+      startButton.textContent = "Start Survival Run";
       return;
     }
 
     if (state.phase === "briefing") {
       startButton.hidden = false;
-      startButton.textContent = "Start Round";
+      startButton.textContent = "Start Level";
       restartButton.hidden = false;
       return;
     }
 
     if (state.phase === "active") {
-      if (isMultiSelect) {
+      if (isCommitMode) {
         submitButton.hidden = false;
-        submitButton.textContent = round.submitLabel || "Submit";
-        submitButton.disabled = selectedCount < (round.minSelections || 1);
+        submitButton.textContent = level.submitLabel || "Submit Move";
+        submitButton.disabled = !commitSelectionReady(level);
         clearSelectionButton.hidden = false;
         clearSelectionButton.disabled = selectedCount === 0;
       }
@@ -579,7 +565,7 @@
 
     if (state.phase === "feedback") {
       startButton.hidden = false;
-      startButton.textContent = state.roundIndex + 1 >= TOTAL_ROUNDS ? "See Results" : "Next Round";
+      startButton.textContent = "Next Level";
       restartButton.hidden = false;
       return;
     }
@@ -587,8 +573,21 @@
     if (state.phase === "complete") {
       shareButton.hidden = false;
       playMixButton.hidden = false;
+      playMixButton.textContent = "Play again";
       restartButton.hidden = false;
     }
+  }
+
+  function commitSelectionReady(level) {
+    if (level.answerMode === ANSWER_MODES.MULTI_SELECT) {
+      return state.selectedIndices.length >= (level.minSelections || getAnswerIndices(level).length);
+    }
+    if (level.answerMode === ANSWER_MODES.TWO_STEP) {
+      return (level.answerSteps || []).every(function (step) {
+        return typeof state.selectedSteps[step.role] === "number";
+      });
+    }
+    return false;
   }
 
   function showBoard() {
@@ -625,67 +624,67 @@
     exampleCaption.textContent = "";
   }
 
-  function startTimer() {
-    if (!state.activeStartedAt) {
-      state.activeStartedAt = performance.now();
-    }
-
+  function startTimers() {
+    state.activeStartedAt = performance.now();
+    state.levelStartedAt = state.activeStartedAt;
     if (!timerId) {
-      timerId = window.setInterval(updateTimer, 100);
+      timerId = window.setInterval(updateTimerDisplay, 100);
     }
-    updateTimer();
+    updateTimerDisplay();
   }
 
-  function pauseTimer() {
+  function pauseTimers() {
     if (state.activeStartedAt) {
       state.activeElapsedMs += performance.now() - state.activeStartedAt;
       state.activeStartedAt = 0;
-      updateTimer();
+      state.levelStartedAt = 0;
     }
+    if (timerId) {
+      window.clearInterval(timerId);
+      timerId = null;
+    }
+    updateTimerDisplay();
+  }
 
-    stopTimer();
+  function updateTimerDisplay() {
+    var totalMs = getElapsedMs();
+    var levelRemaining = getLevelRemainingMs();
+
+    timerText.textContent = formatClock(totalMs);
+    levelTimerText.textContent = Math.max(0, Math.ceil(levelRemaining / 1000)) + "s";
+    levelTimerBox.classList.toggle("is-low-time", state.phase === "active" && levelRemaining <= lowTimeWarningSeconds * 1000);
+
+    if (state.phase === "active" && levelRemaining <= 0) {
+      endRun("time-expired", [], "Run ended", "Time expired on this level.");
+    }
   }
 
   function getElapsedMs() {
     if (state.activeStartedAt) {
       return state.activeElapsedMs + (performance.now() - state.activeStartedAt);
     }
-
     return state.activeElapsedMs;
   }
 
-  function updateTimer() {
-    timerText.textContent = formatSeconds(getElapsedMs());
-  }
-
-  function stopTimer() {
-    if (timerId) {
-      window.clearInterval(timerId);
-      timerId = null;
+  function getLevelRemainingMs() {
+    if (!state.levelStartedAt) {
+      return levelLimitSeconds * 1000;
     }
+    return levelLimitSeconds * 1000 - (performance.now() - state.levelStartedAt);
   }
 
-  function clearTimers() {
-    if (wrongFeedbackId) {
-      window.clearTimeout(wrongFeedbackId);
-      wrongFeedbackId = null;
-    }
-    stopTimer();
-  }
+  function formatClock(milliseconds) {
+    var totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+    var minutes = Math.floor(totalSeconds / 60);
+    var seconds = totalSeconds % 60;
 
-  function formatSeconds(milliseconds) {
-    return (milliseconds / 1000).toFixed(1) + "s";
-  }
-
-  function formatWholeSeconds(seconds) {
-    return seconds + "s";
+    return minutes + ":" + String(seconds).padStart(2, "0");
   }
 
   function shareResult() {
-    var text = sharePreview.value || buildShareText(Scoring.calculateScore(getElapsedMs(), state.totalMistakes));
+    var text = sharePreview.value || buildShareText(survivalScore());
 
     sharePreview.value = text;
-
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
         temporarilyLabelShareButton("Copied");
@@ -694,7 +693,6 @@
       });
       return;
     }
-
     showShareFallback(text);
   }
 
@@ -716,40 +714,64 @@
   function buildShareText(score) {
     var lines = [
       "One Wrong Move #" + padNumber(puzzleNumber, 3),
-      "Score: " + formatWholeSeconds(score.scoreSeconds),
-      "Lower is better"
+      "Survival Run",
+      score.levelsCompleted + " levels in " + formatClock(score.totalActiveMs),
+      "Ended: " + endReasonShareLabel(score.endReason) + " on Level " + score.endedOnLevel,
+      "Limit: " + levelLimitSeconds + "s/level"
     ];
+    var played = run.levels.slice(0, Math.max(score.endedOnLevel, score.levelsCompleted));
+    var shown = played.length > 8 ? played.slice(0, 5).concat(played.slice(-3)) : played;
 
     if (sessionAttempt > 1) {
       lines.push("Variant " + sessionAttempt);
     }
-
-    lines.push(
-      "Base: " + formatWholeSeconds(score.baseSeconds),
-      "Mistakes: " + state.totalMistakes + " × " + score.penaltySecondsPerMistake + "s = +" + formatWholeSeconds(score.mistakePenaltySeconds),
-      "✅✅✅"
-    );
-
-    lines.push("");
-    puzzle.rounds.forEach(function (round, index) {
-      lines.push("Round " + (index + 1) + ": " + round.name);
+    lines.push("", "Best levels:");
+    shown.forEach(function (level, index) {
+      if (played.length > 8 && index === 5) {
+        lines.push("...");
+      }
+      lines.push(level.levelNumber + ". " + level.name);
     });
-
     return lines.join("\n");
   }
 
-  function getAnswerIndices(round) {
-    if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
-      return round.answerIndices.slice().sort(sortNumbers);
-    }
+  function currentLevel() {
+    return run.levels[state.levelIndex];
+  }
 
-    return typeof round.answerIndex === "number" ? [round.answerIndex] : [];
+  function survivalScore() {
+    return Scoring.calculateSurvivalScore(state.levelsCompleted, getElapsedMs(), state.endedOnLevel || state.levelIndex + 1, state.endReason || "wrong-move");
+  }
+
+  function resetSelections() {
+    state.selectedIndices = [];
+    state.selectedSteps = {};
+    state.wrongIndices = [];
+  }
+
+  function clearSelection() {
+    if (state.phase !== "active") {
+      return;
+    }
+    resetSelections();
+    hideFeedback();
+    renderLevel(currentLevel());
+    updateButtons();
+  }
+
+  function getAnswerIndices(level) {
+    if (Array.isArray(level.answerIndices) && level.answerIndices.length > 0) {
+      return level.answerIndices.slice().sort(sortNumbers);
+    }
+    if (Array.isArray(level.answerSteps) && level.answerSteps.length > 0) {
+      return level.answerSteps.map(function (step) { return step.index; }).sort(sortNumbers);
+    }
+    return typeof level.answerIndex === "number" ? [level.answerIndex] : [];
   }
 
   function sameSet(left, right) {
     left = left.slice().sort(sortNumbers);
     right = right.slice().sort(sortNumbers);
-
     return left.length === right.length && left.every(function (item, index) {
       return item === right[index];
     });
@@ -759,16 +781,22 @@
     return a - b;
   }
 
+  function endReasonLabel(reason) {
+    return reason === "time-expired" ? "Time expired" : "Wrong move";
+  }
+
+  function endReasonShareLabel(reason) {
+    return reason === "time-expired" ? "time expired" : "wrong move";
+  }
+
   function getStoredAttempt() {
     var stored = Number(window.sessionStorage.getItem(attemptKey));
-
     return stored > 0 ? stored : 1;
   }
 
   function getStoredSignatures() {
     try {
       var stored = JSON.parse(window.sessionStorage.getItem(signatureKey) || "[]");
-
       return Array.isArray(stored) ? stored : [];
     } catch (error) {
       return [];
@@ -781,51 +809,35 @@
 
   window.OneWrongMove = {
     getSnapshot: function () {
-      var currentRound = puzzle.rounds[state.roundIndex];
-      var currentRoundState = state.rounds[state.roundIndex];
-
+      var level = currentLevel();
       return {
         dateKey: todayKey,
         puzzleNumber: puzzleNumber,
         sessionAttempt: sessionAttempt,
         phase: state.phase,
-        roundIndex: state.roundIndex,
-        answerMode: currentRound ? currentRound.answerMode : null,
-        answerIndex: currentRound ? currentRound.answerIndex : null,
-        answerIndices: currentRound ? getAnswerIndices(currentRound) : [],
-        selectedIndices: currentRoundState ? currentRoundState.selectedIndices.slice() : [],
-        breakSignature: currentRound ? currentRound.breakSignature : null,
-        totalMistakes: state.totalMistakes,
+        levelIndex: state.levelIndex,
+        levelNumber: state.levelIndex + 1,
+        answerMode: level ? level.answerMode : null,
+        answerIndex: level ? level.answerIndex : null,
+        answerIndices: level ? getAnswerIndices(level) : [],
+        answerSteps: level ? level.answerSteps || [] : [],
+        selectedIndices: state.selectedIndices.slice(),
+        selectedSteps: Object.assign({}, state.selectedSteps),
+        breakSignature: level ? level.breakSignature : null,
+        levelsCompleted: state.levelsCompleted,
+        wrongMoves: state.wrongMoves,
+        endReason: state.endReason,
         elapsedMs: getElapsedMs(),
-        score: Scoring.calculateScore(getElapsedMs(), state.totalMistakes),
+        levelRemainingMs: getLevelRemainingMs(),
+        score: survivalScore(),
         timerRunning: Boolean(timerId),
         boardVisible: !gameArea.hidden,
-        validation: Puzzles.validatePuzzle(puzzle),
-        roundIds: puzzle.rounds.map(function (round) {
-          return round.id;
-        }),
-        answerModes: puzzle.rounds.map(function (round) {
-          return round.answerMode;
-        }),
-        roundNames: puzzle.rounds.map(function (round) {
-          return round.name;
-        }),
-        sourceWorlds: puzzle.rounds.map(function (round) {
-          return round.sourceWorld;
-        }),
-        breakSignatures: puzzle.rounds.map(function (round) {
-          return round.breakSignature;
-        }),
-        evidence: puzzle.rounds.map(function (round) {
-          return round.evidence;
-        }),
-        rounds: state.rounds.map(function (roundState) {
-          return {
-            solved: roundState.solved,
-            mistakes: roundState.mistakes,
-            selectedIndices: roundState.selectedIndices.slice()
-          };
-        })
+        validation: Puzzles.validatePuzzle(run),
+        levelIds: run.levels.map(function (item) { return item.id; }),
+        levelNames: run.levels.map(function (item) { return item.name; }),
+        answerModes: run.levels.map(function (item) { return item.answerMode; }),
+        sourceWorlds: run.levels.map(function (item) { return item.sourceWorld; }),
+        breakSignatures: run.levels.map(function (item) { return item.breakSignature; })
       };
     }
   };

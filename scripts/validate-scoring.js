@@ -48,4 +48,13 @@ checkCase(59999, 3, {
   scoreSeconds: 90
 });
 
-console.log("Validated lower-is-better scoring cases.");
+const survival = scoring.calculateSurvivalScore(12, 258000, 13, "wrong-move");
+
+assert(survival.levelsCompleted === 12, "Survival levels completed mismatch");
+assert(survival.totalActiveSeconds === 258, "Survival seconds mismatch");
+assert(survival.endedOnLevel === 13, "Survival ended level mismatch");
+assert(survival.endReason === "wrong-move", "Survival end reason mismatch");
+assert(survival.rankingKey.primary === 12, "Survival ranking primary mismatch");
+assert(survival.rankingKey.secondary === 258000, "Survival ranking secondary mismatch");
+
+console.log("Validated lower-is-better legacy scoring and Survival Run scoring cases.");

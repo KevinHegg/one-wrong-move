@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>One Wrong Move Puzzle Lab</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css?v=009">
-    <script src="symbols.js?v=009" defer></script>
-    <script src="scoring.js?v=009" defer></script>
-    <script src="puzzles.js?v=009" defer></script>
-    <script src="lab.js?v=009" defer></script>
+    <link rel="stylesheet" href="style.css?v=010">
+    <script src="config.js?v=010" defer></script>
+    <script src="symbols.js?v=010" defer></script>
+    <script src="scoring.js?v=010" defer></script>
+    <script src="puzzles.js?v=010" defer></script>
+    <script src="lab.js?v=010" defer></script>
   </head>
   <body class="lab-page">
     <main class="lab-shell" aria-label="One Wrong Move puzzle lab">
@@ -30,8 +31,14 @@
           <span>Session attempt</span>
           <input id="labAttempt" type="number" min="1" value="1">
         </label>
+        <label>
+          <span>Level limit</span>
+          <input id="labLimit" type="number" min="15" max="180" value="60">
+        </label>
         <button id="labRegenerate" class="primary-button" type="button">Regenerate</button>
       </section>
+
+      <section id="labSurvival" class="lab-section" aria-label="Survival stream preview"></section>
 
       <section id="labList" class="lab-list" aria-live="polite"></section>
     </main>

@@ -19,7 +19,12 @@ const REQUIRED_ACTIVE_IDS = new Set([
   "pair-pact",
   "chess-attack",
   "go-capture-max",
-  "go-liberties"
+  "go-liberties",
+  "yahtzee-fix",
+  "maze-exit",
+  "maze-key-exit",
+  "scrabble-cross",
+  "tetris-fit"
 ]);
 
 function assert(condition, message) {
@@ -40,6 +45,10 @@ function getAnswerIndices(round) {
     return round.answerIndices.slice().sort((a, b) => a - b);
   }
 
+  if (Array.isArray(round.answerSteps) && round.answerSteps.length > 0) {
+    return round.answerSteps.map((step) => step.index).sort((a, b) => a - b);
+  }
+
   return typeof round.answerIndex === "number" ? [round.answerIndex] : [];
 }
 
@@ -54,17 +63,20 @@ function validateAnswer(round, result) {
   const answers = (result.answers || []).slice().sort((a, b) => a - b);
   const expected = getAnswerIndices(round);
 
-  assert(["identifyOne", "chooseOne", "multiSelect"].includes(round.answerMode), `Unknown answer mode for ${round.id}`);
+  assert(["identifyOne", "chooseOne", "multiSelect", "twoStep"].includes(round.answerMode), `Unknown answer mode for ${round.id}`);
   assert(answers.length > 0, `No validator answers for ${round.id}`);
   assert(sameSet(answers, expected), `Validator answer does not match expected answer for ${round.id}`);
 
   if (round.answerMode === "identifyOne" || round.answerMode === "chooseOne") {
     assert(answers.length === 1, `Single-answer puzzle has multiple answers: ${round.id}`);
     assert(round.answerIndex === answers[0], `Single-answer answerIndex mismatch: ${round.id}`);
-  } else {
+  } else if (round.answerMode === "multiSelect") {
     assert(round.answerIndices.length >= 1, `Multi-select answer set missing: ${round.id}`);
     assert(round.minSelections >= 1, `Multi-select minSelections missing: ${round.id}`);
     assert(round.maxSelections >= round.minSelections, `Multi-select maxSelections invalid: ${round.id}`);
+  } else {
+    assert(round.answerSteps && round.answerSteps.length >= 2, `Two-step answer steps missing: ${round.id}`);
+    assert(round.submitLabel, `Two-step submit label missing: ${round.id}`);
   }
 }
 
@@ -175,7 +187,7 @@ function validateAllTypes() {
     }
   });
 
-  ["identifyOne", "chooseOne", "multiSelect"].forEach((mode) => {
+  ["identifyOne", "chooseOne", "multiSelect", "twoStep"].forEach((mode) => {
     assert(seenAnswerModes.has(mode), `Production pool missing answer mode ${mode}`);
   });
   ["king", "queen", "rook", "bishop", "knight"].forEach((piece) => {
@@ -193,7 +205,7 @@ function validateGoPuzzles() {
 
     assert(captureResult.valid, "Go Capture Max generated an invalid board");
     assert(captureResult.answers.length === 1, "Go Capture Max must have exactly one best move");
-    assert(capture.choiceScores.find((score) => score.index === captureResult.answers[0]).score > 0, "Go Capture Max best move must capture at least one stone");
+    assert(capture.choiceScores.find((score) => score.index === captureResult.answers[0]).score >= 2, "Go Capture Max best move must capture at least two stones");
 
     const liberties = libertiesType.generate(`go-liberties-${attempt}`, 3, attempt, []);
     const libertiesResult = puzzles.validateGoLiberties(liberties);
@@ -210,7 +222,7 @@ function validateScoringReferences() {
   const scoringSource = fs.readFileSync(path.join(__dirname, "../public/scoring.js"), "utf8");
 
   assert(score.baseSeconds === 19 && score.mistakePenaltySeconds === 20 && score.scoreSeconds === 39, "Lower-is-better scoring calculation regressed");
-  assert(!/1000\s*-/.test(game + scoringSource), "Old 1000-point scoring formula still appears");
+  assert(!/score\s*=\s*Math\.max\(0,\s*1000/i.test(game + scoringSource), "Old opaque scoring formula still appears");
   assert(!/mistakes\s*\*\s*50/.test(game + scoringSource), "Old 50-point mistake penalty still appears");
   assert(!/\bpoints\b/i.test(game + scoringSource), "Score should not be presented as points");
 }

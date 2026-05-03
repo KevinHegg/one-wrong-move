@@ -2,20 +2,25 @@
   "use strict";
 
   var Puzzles = window.OneWrongMovePuzzles;
+  var Config = window.OWM_CONFIG || { levelTimeLimitSeconds: 60 };
   var seedInput = document.getElementById("labSeed");
   var attemptInput = document.getElementById("labAttempt");
+  var limitInput = document.getElementById("labLimit");
   var regenerateButton = document.getElementById("labRegenerate");
+  var labSurvival = document.getElementById("labSurvival");
   var labList = document.getElementById("labList");
 
   regenerateButton.addEventListener("click", renderLab);
   seedInput.addEventListener("change", renderLab);
   attemptInput.addEventListener("change", renderLab);
+  limitInput.addEventListener("change", renderLab);
 
   renderLab();
 
   function renderLab() {
     var seed = seedInput.value.trim() || Puzzles.getLocalDateKey(new Date());
     var attempt = Math.max(1, Number(attemptInput.value) || 1);
+    var limit = Config.validateLevelTimeLimit ? Config.validateLevelTimeLimit(limitInput.value) : 60;
     var params = new URLSearchParams(window.location.search);
     var showAnswers = params.get("showAnswers") === "1";
     var focusType = params.get("focus") || "";
@@ -36,10 +41,23 @@
     }
 
     attemptInput.value = String(attempt);
+    limitInput.value = String(limit);
+    renderSurvivalPreview(seed, attempt, limit);
     labList.innerHTML = "";
 
     renderSection("Production puzzle types", activeTypes, seed, attempt, showAnswers);
     renderSection("Retired / lab-only puzzle types", retiredTypes, seed, attempt, showAnswers);
+  }
+
+  function renderSurvivalPreview(seed, attempt, limit) {
+    var stream = Puzzles.generateSurvivalLevels(seed, attempt, [], 20);
+
+    labSurvival.innerHTML =
+      "<h2 class=\"lab-section-title\">Survival stream preview</h2>" +
+      "<p class=\"lab-briefing\">First 20 generated levels for this seed. Limit: " + escapeHtml(limit) + "s/level.</p>" +
+      "<div class=\"lab-stream-list\">" + stream.levels.map(function (level) {
+        return "<span class=\"stream-chip\">" + level.levelNumber + ". " + escapeHtml(level.name) + " · " + escapeHtml(level.sourceWorld) + " · " + escapeHtml(level.answerMode) + "</span>";
+      }).join("") + "</div>";
   }
 
   function renderSection(title, types, seed, attempt, showAnswers) {
@@ -95,6 +113,7 @@
       "<dl class=\"lab-meta\">" +
         "<div><dt>Break signature</dt><dd>" + escapeHtml(round.breakSignature) + "</dd></div>" +
         "<div><dt>Evidence</dt><dd>" + escapeHtml(round.evidence) + "</dd></div>" +
+        extraMeta(type, round) +
         "<div><dt>Answer</dt><dd class=\"lab-answer-text\">Hidden</dd></div>" +
         "<div><dt>Validator</dt><dd>" + (validation.valid ? "valid" : "invalid") + " · " + escapeHtml((validation.answers || []).join(", ")) + "</dd></div>" +
       "</dl>";
@@ -111,6 +130,44 @@
     }
 
     return card;
+  }
+
+  function extraMeta(type, round) {
+    if (type.id === "chess-attack") {
+      var pieces = round.board.filter(function (cell) {
+        return cell.value && cell.value.piece;
+      });
+      var counts = {};
+
+      pieces.forEach(function (cell) {
+        counts[cell.value.piece] = (counts[cell.value.piece] || 0) + 1;
+      });
+      return "<div><dt>Pieces</dt><dd>" + pieces.length + " numbered · " + escapeHtml(Object.keys(counts).map(function (piece) {
+        return piece + ": " + counts[piece];
+      }).join(", ")) + "</dd></div>";
+    }
+
+    if (type.id === "go-capture-max" && round.choiceScores) {
+      return "<div><dt>Capture scores</dt><dd>" + escapeHtml(round.choiceScores.filter(function (score) {
+        return score.score > 0;
+      }).map(function (score) {
+        return "cell " + (score.index + 1) + ": " + score.score;
+      }).join(", ")) + "</dd></div>";
+    }
+
+    if (type.id === "go-liberties") {
+      return "<div><dt>Liberties</dt><dd>" + escapeHtml(getAnswerIndices(round).map(function (index) {
+        return "cell " + (index + 1);
+      }).join(", ")) + "</dd></div>";
+    }
+
+    if (round.answerMode === "twoStep") {
+      return "<div><dt>Steps</dt><dd>" + escapeHtml((round.answerSteps || []).map(function (step) {
+        return step.role + ": cell " + (step.index + 1);
+      }).join(", ")) + "</dd></div>";
+    }
+
+    return "";
   }
 
   function renderBoard(container, board) {
@@ -155,7 +212,7 @@
   }
 
   function answerSummary(round, answerIndices) {
-    var label = round.answerMode === "multiSelect" ? "Cells " : "Cell ";
+    var label = round.answerMode === "multiSelect" || round.answerMode === "twoStep" ? "Cells " : "Cell ";
     var numbers = answerIndices.map(function (index) {
       return index + 1;
     }).join(", ");
@@ -216,6 +273,14 @@
   function getAnswerIndices(round) {
     if (Array.isArray(round.answerIndices) && round.answerIndices.length > 0) {
       return round.answerIndices.slice().sort(function (a, b) {
+        return a - b;
+      });
+    }
+
+    if (Array.isArray(round.answerSteps) && round.answerSteps.length > 0) {
+      return round.answerSteps.map(function (step) {
+        return step.index;
+      }).sort(function (a, b) {
         return a - b;
       });
     }

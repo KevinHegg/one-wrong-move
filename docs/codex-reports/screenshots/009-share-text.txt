@@ -1,0 +1,8 @@
+One Wrong Move #001
+Survival Run
+0 levels in 0:00
+Ended: wrong move on Level 1
+Limit: 60s/level
+
+Best levels:
+1. Dice Sum

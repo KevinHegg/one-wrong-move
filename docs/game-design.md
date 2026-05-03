@@ -8,63 +8,63 @@ The next one-board versions improved the premise, but some puzzle types still fe
 
 Those three types are now retired from normal daily play. They remain in the puzzle lab as reference and backlog material, but the daily mix favors source-world systems with stronger intrinsic rules.
 
-## Expanded Product Promise
+## Survival Product Promise
 
 The product principle is:
 
-> One board. One rule. One move — or one precise set of moves.
+> One board. One rule. One move. Survive until your first wrong move.
 
 Every active board must be self-contained. The player should be able to infer the rule from the visible symbols, prove that the answer is unique, and understand the answer after feedback. The game should reward pattern reasoning, not short-term memory, visual rarity, or childish odd-one-out scanning.
 
 Symbols are rule carriers, not decoration. A card is useful because rank and suit can progress. A chess piece is useful because it has legal attacks. A Go stone is useful because liberties use orthogonal adjacency. A domino is useful because halves match. Arbitrary glyphs still have a place, but they should not dominate the daily experience.
 
+## Why Survival Replaced Three Rounds
+
+The old three-round daily format was clean, but it made the title less meaningful. The player could make mistakes, absorb a time penalty, and still finish. Survival Run makes the product promise literal: one wrong committed move ends the run.
+
+This changes the emotional shape of the game. A correct answer is not just progress through a fixed checklist; it is survival. The score also becomes easier to understand: completed levels are the primary achievement, and total active time breaks ties.
+
 ## Answer Modes
 
-The puzzle model supports three answer modes:
+The puzzle model supports four answer modes:
 
 - `identifyOne`: tap exactly one symbol that breaks the board rule.
 - `chooseOne`: tap exactly one best move square.
 - `multiSelect`: select one or more squares, then submit the exact set.
+- `twoStep`: make two tentative selections, then submit the move.
 
-Single-answer puzzles preserve the original tap flow. Multi-select puzzles keep the timer running through wrong submissions, then pause only when the selected set is exactly correct. This makes Go Liberties possible without turning the whole app into a different game.
+Single-answer and choose-one puzzles preserve the fast tap flow. Multi-select and two-step puzzles treat selection clicks as planning, not final moves. The run ends only when the player presses **Submit Move** with a wrong set. That extra commit step prevents accidental finger taps from killing a run on puzzles that require multiple precise selections.
 
 ## State Flow
 
 The game uses five explicit states:
 
-- **intro**: explains the daily puzzle, keeps the board hidden, and shows the main start action.
-- **briefing**: pauses before each round with source world, round name, one-sentence goal, symbol chips, and a tiny non-spoiler example.
+- **intro**: explains Survival Run, keeps the board hidden, and shows the main start action.
+- **briefing**: pauses before each level with source world, puzzle name, answer mode, symbol chips, and a tiny non-spoiler example.
 - **active**: reveals the real board and runs the timer while the player solves.
-- **feedback**: pauses the timer after a correct answer, highlights the answer, and explains the rule.
-- **complete**: keeps the timer stopped and shows results, score, sharing, replay, and restart actions.
+- **feedback**: pauses timers after a correct answer, highlights the answer, and explains the rule.
+- **complete**: keeps timers stopped and shows the Run Over result, sharing, and replay actions.
 
-The board is hidden during intro and briefing. It appears only after **Start Round**, stays visible during feedback, and never reveals the next puzzle before the next briefing is started.
+The board is hidden during intro and briefing. It appears only after **Start Level**, stays visible during correct feedback, and never reveals the next puzzle before the next briefing is started.
 
-## Timer And Score
+## Timer And Survival Ranking
 
-The timer measures active solving time only. It does not run during the intro, briefings, correct feedback, transitions, or completion. Wrong taps and wrong multi-select submissions keep the timer running because they are part of the solve.
+The run timer measures active solving time only. It does not run during the intro, briefings, correct feedback, transitions, or completion. Each active level also has a configurable countdown, defaulting to 60 seconds. The countdown becomes visually urgent in the final 10 seconds.
 
-The score is lower-is-better:
+Survival results use this ranking rule:
 
 ```text
-baseSeconds = Math.ceil(totalActiveMs / 1000)
-mistakePenaltySeconds = mistakes * 10
-scoreSeconds = baseSeconds + mistakePenaltySeconds
+More completed levels is better.
+If tied, faster active time is better.
 ```
 
-Example: 18.2 active seconds and 2 mistakes becomes:
-
-- Base time: 19s
-- Mistake penalty: 2 x 10s = +20s
-- Final score: 39s
-
-The 10-second penalty is intentionally plain. It makes mistakes matter while keeping the score readable as time, not points.
+The previous lower-is-better time score remains in the scoring utility for validation history, but the main mode no longer accumulates mistake penalties. Mistakes no longer stack; the first wrong committed move ends the run.
 
 ## Source-World Diversity
 
 Real-world systems make puzzles more memorable because the player can bring prior intuition to the board. Cards have rank and suit. Chess pieces have attacks. Go groups have liberties. Logic gates have truth tables. Dominoes have matching halves. Train routes have connectivity. These systems make the rule feel discovered rather than invented.
 
-The daily selector uses deterministic randomness from the date and session attempt. It chooses three puzzle types while preferring:
+The survival selector uses deterministic randomness from the date and session attempt. It generates at least 100 practical levels while preferring:
 
 - no duplicate puzzle type
 - no duplicate source world when alternatives exist
@@ -73,7 +73,7 @@ The daily selector uses deterministic randomness from the date and session attem
 - no more than one movement-path puzzle when alternatives exist
 - no duplicate card or Go family when alternatives exist
 - at least one real-world source-world puzzle
-- difficulty escalation: round 1 is easier, round 2 is medium, round 3 is strongest
+- difficulty escalation: levels 1-3 are approachable, levels 4-8 are medium, and levels 9+ lean harder
 
 ## Current Production Types
 
@@ -96,6 +96,11 @@ The daily selector uses deterministic randomness from the date and session attem
 | Checkers Jump | Checkers | identifyOne | 3 | Diagonal movement | Numbered checkers must move diagonally. |
 | Go Capture Max | Go | chooseOne | 4 | Capture counting | Black to play; choose the move that captures the most white stones. |
 | Go Liberties | Go | multiSelect | 4 | Orthogonal adjacency | Select every liberty of the marked group. |
+| Yahtzee Fix | Yahtzee | multiSelect | 3 | Category repair | Select the exact two dice that break a five-dice category. |
+| Maze Exit | Maze | chooseOne | 2 | Reachability | Trace from S and choose the reachable exit. |
+| Maze Key Exit | Maze | twoStep | 3 | Key-route pairing | Choose the reachable key and the exit it opens. |
+| Scrabble Cross | Words | twoStep | 3 | Word crossing | Choose the square and rack tile that make valid crossing words. |
+| Tetris Fit | Tetris | multiSelect | 3 | Shape placement | Select the exact tetromino cells that complete the target line. |
 
 ## Retired From Daily Play
 
@@ -107,7 +112,9 @@ The daily selector uses deterministic randomness from the date and session attem
 
 ## Chess Attack
 
-Chess Attack replaces generic Knight Path in the daily mix. Numbered pieces sit on their own squares, such as a rook with a small `1` badge or bishop with a small `3` badge. The player follows the pieces in order. Each piece must legally attack the next numbered piece:
+Chess Attack replaces generic Knight Path in the daily mix. It is now denser and more satisfying: each board aims for 9-10 numbered pieces on the 5x5 grid, and each generated board uses all five non-pawn piece types when possible.
+
+Numbered pieces sit on their own squares, such as a rook with a small `1` badge or bishop with a small `3` badge. The player follows the pieces in order. Each piece must legally attack the next numbered piece:
 
 - Rook: row or column line.
 - Bishop: diagonal line.
@@ -115,7 +122,7 @@ Chess Attack replaces generic Knight Path in the daily mix. Numbered pieces sit 
 - Knight: L-shape.
 - King: one square in any direction.
 
-The answer is the first numbered piece that cannot legally attack the next numbered piece. The validator computes those movement rules directly and rejects pawns.
+The answer is the first numbered piece that cannot legally attack the next numbered piece. The validator computes those movement rules directly, checks that piece and number live on the same square, rejects pawns, and verifies the first illegal attacker.
 
 ## Go Puzzles
 
@@ -128,9 +135,23 @@ Go uses simplified rules:
 - A move captures an opponent group when it fills that group's last liberty.
 - Ko and full-life-and-death concepts are intentionally out of scope.
 
-**Go Capture Max** is a `chooseOne` puzzle. Black to play, and exactly one empty point captures the most white stones. The validator computes capture scores from the rendered board.
+**Go Capture Max** is a `chooseOne` puzzle. Black to play, and exactly one empty point captures the most white stones. The board is denser than before, with multiple white groups and decoy capture moves. The validator computes capture scores from the rendered board and requires one unique best capture.
 
-**Go Liberties** is a `multiSelect` puzzle. A group is marked, and the player selects every empty orthogonal liberty. The correct submission must exactly match the liberty set.
+**Go Liberties** is a `multiSelect` puzzle. A group of 2-4 stones is marked, and the player selects every empty orthogonal liberty. The board includes diagonal decoys because diagonals do not count. The correct submission must exactly match the liberty set.
+
+Go rendering now uses a board-grid treatment rather than generic tiles. Black stones are filled circles, white stones are hollow circles with strong outlines, and marked groups receive a visible ring. Empty intersections remain clearly tappable without pre-marking active liberties.
+
+## New Puzzle Types
+
+**Yahtzee Fix** asks the player to repair a visible five-dice category by selecting exactly two wrong dice. It supports categories such as full house, four of a kind, and large straight while keeping the dice values small and readable.
+
+**Maze Exit** turns the 5x5 board into a tiny route map. The player traces from `S` through open paths and chooses the one reachable exit.
+
+**Maze Key Exit** is a two-step puzzle: choose the reachable key, then choose the exit it opens. Selection is tentative until the player commits the move.
+
+**Scrabble Cross** uses a tiny curated vocabulary. The player chooses one empty square and one rack tile that create valid crossing words.
+
+**Tetris Fit** asks for the exact four cells of the tetromino placement that completes the target row. It uses familiar piece shapes but avoids a full falling-block simulation.
 
 ## Validators And Uniqueness
 
@@ -145,11 +166,11 @@ Every puzzle type has a generator and validator. The validator checks that:
 - the puzzle has briefing copy, example data, symbols, explanation, hint, evidence, and break signature
 - retired types are not selected for the daily mix
 
-The validation scripts test all registered types directly, 300 date seeds, and five same-session attempts. Go Capture Max, Go Liberties, and Chess Attack have independent domain validators that compute captures, liberties, and legal attacks from board data.
+The validation scripts test all registered types directly, 300 date seeds, five same-session attempts, and the first 50 survival levels per date/attempt pair. Go Capture Max, Go Liberties, Chess Attack, Maze Exit, and the survival stream have independent domain or stream validators.
 
 ## Session Variation
 
-The first play of the day uses the canonical daily seed. Restarting or choosing **Play another mix** increments a same-session attempt counter stored in `sessionStorage`.
+The first play of the day uses the canonical daily seed. Restarting or choosing **Play again** increments a same-session attempt counter stored in `sessionStorage`.
 
 Every break has a signature containing:
 
@@ -162,7 +183,7 @@ Previously used signatures are also kept in `sessionStorage`. When a puzzle type
 
 ## Mobile And Desktop Presentation
 
-The app is a phone puzzle first. The header is compact and includes title, puzzle number, round indicator, timer, mistakes, and daily/variant label. The rule card and primary button stay close to the board, and every active puzzle cell is a native button sized for touch.
+The app is a phone puzzle first. The header is compact and includes title, puzzle number, level indicator, run timer, level countdown, lives, and daily/variant label. The rule card and primary button stay close to the board, and every active puzzle cell is a native button sized for touch.
 
 On laptop and desktop screens, the game is constrained to a centered smartphone-sized frame with rounded corners, subtle shadow, fixed phone-like height where possible, and internal scrolling. The layout intentionally never stretches wide because the puzzle rhythm depends on a compact handheld board.
 

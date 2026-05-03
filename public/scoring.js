@@ -24,7 +24,27 @@
     };
   }
 
+  function calculateSurvivalScore(levelsCompleted, totalActiveMs, endedOnLevel, endReason) {
+    var safeLevels = Math.max(0, Number(levelsCompleted) || 0);
+    var safeMs = Math.max(0, Number(totalActiveMs) || 0);
+    var safeEndedLevel = Math.max(1, Number(endedOnLevel) || safeLevels + 1);
+    var totalActiveSeconds = Math.ceil(safeMs / 1000);
+
+    return {
+      levelsCompleted: safeLevels,
+      totalActiveMs: safeMs,
+      totalActiveSeconds: totalActiveSeconds,
+      endedOnLevel: safeEndedLevel,
+      endReason: endReason || "wrong-move",
+      rankingKey: {
+        primary: safeLevels,
+        secondary: safeMs
+      }
+    };
+  }
+
   return {
-    calculateScore: calculateScore
+    calculateScore: calculateScore,
+    calculateSurvivalScore: calculateSurvivalScore
   };
 }));

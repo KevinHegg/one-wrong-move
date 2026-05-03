@@ -37,7 +37,7 @@ function validateAnswerMode(round, result) {
   const answers = result.answers || [];
   const expected = getAnswerIndices(round);
 
-  assert(["identifyOne", "chooseOne", "multiSelect"].includes(round.answerMode), `Unknown answer mode for ${round.id}`);
+  assert(["identifyOne", "chooseOne", "multiSelect", "twoStep"].includes(round.answerMode), `Unknown answer mode for ${round.id}`);
   assert(answers.length > 0, `No valid answer returned for ${round.id}`);
   assert(sameSet(answers, expected), `Answer mismatch for ${round.id}: expected ${expected}, got ${answers}`);
 
@@ -51,6 +51,11 @@ function validateAnswerMode(round, result) {
     assert(round.minSelections >= 1, `Multi-select minSelections missing for ${round.id}`);
     assert(round.maxSelections >= round.minSelections, `Multi-select maxSelections invalid for ${round.id}`);
     assert(round.submitLabel, `Multi-select submit label missing for ${round.id}`);
+  }
+
+  if (round.answerMode === "twoStep") {
+    assert(round.answerSteps && round.answerSteps.length >= 2, `Two-step answer steps missing for ${round.id}`);
+    assert(round.submitLabel, `Two-step submit label missing for ${round.id}`);
   }
 }
 
@@ -135,7 +140,7 @@ function validateDirectTypes() {
     }
   });
 
-  ["identifyOne", "chooseOne", "multiSelect"].forEach((mode) => {
+  ["identifyOne", "chooseOne", "multiSelect", "twoStep"].forEach((mode) => {
     assert(answerModes.has(mode), `Production pool missing answer mode ${mode}`);
   });
 }
