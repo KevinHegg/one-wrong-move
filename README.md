@@ -104,6 +104,10 @@ The survival stream selects active production puzzle types from a deterministic 
 - Logic Gate Row
 - Domino Chain
 - Dice Sum
+- Sudoku Conflict
+- Mini Sudoku Swap
+- Minesweeper Forced Mine
+- Minesweeper Mark All
 - Yahtzee Fix
 - Maze Exit
 - Maze Key Exit
@@ -130,6 +134,20 @@ The survival stream selects active production puzzle types from a deterministic 
 Rule Rows, Conveyor Shift, and Knight Path remain in the lab as retired/backlog puzzle types, but they are no longer selected for Ladder Run or Three-Set Free Play. They were too easy or less satisfying than the richer source-world puzzles.
 
 Puzzle selection and board generation use a deterministic seed based on `YYYY-MM-DD`, so everyone gets the same daily stream for the same attempt. The selector avoids immediate repeats, rotates source worlds, avoids back-to-back card/Go/movement families when possible, and keeps retired puzzles out of the main run.
+
+## Sudoku And Minesweeper
+
+The app uses compact number-grid logic rather than full desktop-sized puzzles.
+
+**Sudoku Conflict** is a one-tap mini-Sudoku puzzle. A 4x4 grid uses digits 1-4, and every row, column, and 2x2 box must contain each digit once. One digit is wrong.
+
+**Mini Sudoku Swap** is a multi-select repair puzzle. Two digits have been swapped; select both cells and press **Submit Swap**. The validator brute-forces every two-cell swap to prove the repair is unique.
+
+**Minesweeper Forced Mine** asks for the one hidden square that must be a mine under the clue numbers.
+
+**Minesweeper Mark All** asks the player to flag every mine and press **Submit Flags**. The validator enumerates every clue-consistent mine layout and accepts only unique layouts.
+
+Sudoku and Minesweeper are placed carefully in Ladder Run so the earliest levels stay approachable. Free Play can include one number-grid puzzle, but avoids turning a three-puzzle set into a pure number-grid gauntlet.
 
 ## Same-Session Variants
 
@@ -186,6 +204,7 @@ node scripts/validate-targeting.js
 node scripts/validate-freeplay.js
 node scripts/validate-word-puzzles.js
 node scripts/validate-symbol-display.js
+node scripts/validate-sudoku-minesweeper.js
 ```
 
 ## Netlify Deploy Settings
@@ -210,6 +229,7 @@ The root `index.html` loads the same app files from `public/` so the game can be
 - The daily survival stream uses the browser's local date.
 - There is no daily archive, leaderboard, cloud save, or practice mode yet.
 - Puzzle generation uses curated deterministic templates rather than a full procedural search engine.
+- Sudoku is intentionally mini-Sudoku, not full 9x9; Minesweeper uses compact inferred mine layouts for phone-sized timed play.
 - Object and recipe theme packs are curated to avoid ambiguous trivia, but they are not a full knowledge graph.
 - Some validators compare against generated expected boards; the strongest validators independently compute Go liberties, Go captures, chess attacks, maze reachability, and survival stream rules.
 - Same-session variation is stored locally in the current browser session only.

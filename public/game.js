@@ -472,7 +472,8 @@
       correctIndices: markers.correctIndices || [],
       wrongIndices: markers.wrongIndices || state.wrongIndices || [],
       selectedIndices: state.phase === "feedback" ? [] : state.selectedIndices || [],
-      relatedIndexes: markers.relatedIndexes || []
+      relatedIndexes: markers.relatedIndexes || [],
+      columns: level.columns || Puzzles.GRID_SIZE
     });
   }
 
@@ -482,13 +483,16 @@
     options.wrongIndices = options.wrongIndices || [];
     options.selectedIndices = options.selectedIndices || [];
     options.targeting = options.targeting || {};
+    options.columns = options.columns || (state.currentLevel && state.currentLevel.columns) || Puzzles.GRID_SIZE;
     grid.innerHTML = "";
     grid.setAttribute("aria-disabled", options.disabled ? "true" : "false");
+    grid.style.gridTemplateColumns = "repeat(" + options.columns + ", minmax(0, 1fr))";
+    grid.dataset.columns = String(options.columns);
 
     cells.forEach(function (cellData, index) {
       var cell = document.createElement("button");
-      var row = Math.floor(index / Puzzles.GRID_SIZE) + 1;
-      var column = (index % Puzzles.GRID_SIZE) + 1;
+      var row = Math.floor(index / options.columns) + 1;
+      var column = (index % options.columns) + 1;
       var isSelectable = cellData.selectable !== false && cellData.interactive !== false;
 
       cell.type = "button";
@@ -500,7 +504,7 @@
         cell.tabIndex = -1;
       }
       renderCellContents(cell, cellData);
-      cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column, options));
+      cell.setAttribute("aria-label", getCellAriaLabel(cellData, row, column, index, options));
 
       if (options.answerMode === ANSWER_MODES.MULTI_SELECT || options.answerMode === ANSWER_MODES.TWO_STEP) {
         cell.setAttribute("aria-pressed", options.selectedIndices.indexOf(index) !== -1 ? "true" : "false");
@@ -579,9 +583,9 @@
     return classNames.join(" ");
   }
 
-  function getCellAriaLabel(cellData, row, column, options) {
+  function getCellAriaLabel(cellData, row, column, index, options) {
     var visible = cellData.ariaLabel || cellData.label || cellData.glyph || "empty square";
-    var selected = options && options.selectedIndices && options.selectedIndices.indexOf((row - 1) * Puzzles.GRID_SIZE + (column - 1)) !== -1;
+    var selected = options && options.selectedIndices && options.selectedIndices.indexOf(index) !== -1;
 
     return "Row " + row + ", column " + column + ", " + visible + (selected ? ", selected" : "");
   }
@@ -612,7 +616,7 @@
   }
 
   function getBriefingInstruction(level) {
-    return answerModeLabel(level) + ". Timer and countdown are paused until " + (currentMode === MODES.FREEPLAY ? "Start Puzzle." : "Start Level.");
+    return (level.answerStyleLabel || answerModeLabel(level)) + ". Timer and countdown are paused until " + (currentMode === MODES.FREEPLAY ? "Start Puzzle." : "Start Level.");
   }
 
   function getActiveInstruction(level) {
@@ -699,6 +703,7 @@
         submitButton.textContent = level.submitLabel || "Submit Move";
         submitButton.disabled = !commitSelectionReady(level);
         clearSelectionButton.hidden = false;
+        clearSelectionButton.textContent = level.clearLabel || "Clear selection";
         clearSelectionButton.disabled = selectedCount === 0;
       }
       restartButton.hidden = false;

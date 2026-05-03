@@ -112,6 +112,10 @@ The survival selector uses deterministic randomness from the date and session at
 | Pair Pact | Relationships | identifyOne | 1 | Pair inference | Symbols belong in established partner pairs. |
 | Domino Chain | Dominoes | identifyOne | 1 | Matching chain | Neighboring domino halves must match. |
 | Dice Sum | Dice | identifyOne | 1 | Small arithmetic | Dice rows must add to the target. |
+| Sudoku Conflict | Sudoku | identifyOne | 2 | Constraint repair | One digit breaks a mini-Sudoku row, column, or box. |
+| Mini Sudoku Swap | Sudoku | multiSelect | 3 | Constraint repair | Select the two swapped digits that restore the grid. |
+| Minesweeper Forced Mine | Minesweeper | chooseOne | 3 | Mine inference | Tap the one hidden square that must be a mine. |
+| Minesweeper Mark All | Minesweeper | multiSelect | 4 | Complete mine deduction | Flag every mine in the unique clue-consistent layout. |
 | Card Straight | Cards | identifyOne | 2 | Rank progression | Rows form rank straights with suit logic. |
 | Logic Gate Row | Logic | identifyOne | 2 | Boolean logic | Tap the wrong output; inputs and gates are disabled. |
 | Mirror Trap | Relationships | identifyOne | 2 | Mapping inference | The right side mirrors with transformed partners. |
@@ -179,6 +183,26 @@ Go uses simplified rules:
 **Go Liberties** is a `multiSelect` puzzle. A group of 2-4 stones is marked, and the player selects every empty orthogonal liberty. The board includes diagonal decoys because diagonals do not count. The correct submission must exactly match the liberty set.
 
 Go rendering now uses a board-grid treatment rather than generic tiles. Black stones are filled circles, white stones are hollow circles with strong outlines, and marked groups receive a visible ring. Empty intersections remain clearly tappable without pre-marking active liberties.
+
+## Sudoku Puzzles
+
+Sudoku is implemented as a compact mini-Sudoku family, not full 9x9 Sudoku. A full grid would be too large and slow for a phone-first timed game. The production puzzles use a 4x4 board with digits 1-4 and visible 2x2 box boundaries, which keeps the constraint system readable inside the app shell.
+
+**Sudoku Conflict** is `identifyOne`: one digit breaks the row, column, and box constraints. The validator brute-forces every one-cell change and requires exactly one repair cell.
+
+**Mini Sudoku Swap** is `multiSelect`: two digits were swapped. Selection clicks are planning clicks, and **Submit Swap** commits the move. The validator brute-forces every possible two-cell swap and proves that exactly one pair restores all rows, columns, and 2x2 boxes.
+
+These puzzles are number-grid logic, so the selector avoids placing them back-to-back with Minesweeper when alternatives exist. Mini Sudoku Swap does not appear before Level 4 in Ladder Run.
+
+## Minesweeper Puzzles
+
+Minesweeper uses a 5x5 board with revealed clue numbers and hidden candidate squares. Clues count mines in the eight surrounding cells. Clue cells are disabled, hidden cells are selectable, and mines are never shown during active play.
+
+**Minesweeper Forced Mine** is `chooseOne`: enumerate every mine layout consistent with the clues and tap the hidden square that is a mine in all valid layouts.
+
+**Minesweeper Mark All** is `multiSelect`: select every mine and press **Submit Flags**. The validator enumerates clue-consistent mine layouts and accepts only boards with one unique mine set.
+
+Minesweeper selection clicks are planning clicks for multi-select puzzles. In Ladder Run, a wrong submitted flag set ends the run; in Free Play, it adds a mistake and keeps the puzzle active.
 
 ## New Puzzle Types
 

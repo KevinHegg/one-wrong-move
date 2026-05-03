@@ -7,6 +7,7 @@
   var seedInput = document.getElementById("labSeed");
   var attemptInput = document.getElementById("labAttempt");
   var limitInput = document.getElementById("labLimit");
+  var filterInput = document.getElementById("labFilter");
   var regenerateButton = document.getElementById("labRegenerate");
   var labSurvival = document.getElementById("labSurvival");
   var labFreePlay = document.getElementById("labFreePlay");
@@ -18,6 +19,7 @@
   seedInput.addEventListener("change", renderLab);
   attemptInput.addEventListener("change", renderLab);
   limitInput.addEventListener("change", renderLab);
+  filterInput.addEventListener("change", renderLab);
 
   renderLab();
 
@@ -28,6 +30,7 @@
     var params = new URLSearchParams(window.location.search);
     var showAnswers = params.get("showAnswers") === "1";
     var focusType = params.get("focus") || "";
+    var filter = params.get("filter") || filterInput.value || "";
     var activeTypes = Puzzles.puzzleTypes.filter(function (type) {
       return !type.retired;
     });
@@ -43,9 +46,18 @@
         return type.id === focusType;
       });
     }
+    if (filter) {
+      activeTypes = activeTypes.filter(function (type) {
+        return typeMatchesFilter(type, filter);
+      });
+      retiredTypes = retiredTypes.filter(function (type) {
+        return typeMatchesFilter(type, filter);
+      });
+    }
 
     attemptInput.value = String(attempt);
     limitInput.value = String(limit);
+    filterInput.value = filter;
     renderSurvivalPreview(seed, attempt, limit);
     renderFreePlayPreview(seed, attempt);
     renderSymbolPacks();
@@ -54,6 +66,22 @@
 
     renderSection("Production puzzle types", activeTypes, seed, attempt, showAnswers);
     renderSection("Retired / lab-only puzzle types", retiredTypes, seed, attempt, showAnswers);
+  }
+
+  function typeMatchesFilter(type, filter) {
+    if (filter === "sudoku") {
+      return type.sourceWorld === "Sudoku";
+    }
+    if (filter === "minesweeper") {
+      return type.sourceWorld === "Minesweeper";
+    }
+    if (filter === "number") {
+      return ["Sudoku", "Minesweeper", "Dice", "Logic", "Yahtzee"].indexOf(type.sourceWorld) !== -1 || type.sourceWorld === "Logic Grid";
+    }
+    if (filter === "multi") {
+      return type.answerMode === "multiSelect";
+    }
+    return true;
   }
 
   function renderSurvivalPreview(seed, attempt, limit) {
@@ -79,7 +107,7 @@
   }
 
   function renderSymbolPacks() {
-    var packs = ["animals", "food", "kitchen", "music", "sky", "sports", "workshop", "household"];
+    var packs = ["sudoku", "minesweeper", "animals", "food", "kitchen", "music", "sky", "sports", "workshop", "household"];
 
     labSymbols.innerHTML =
       "<h2 class=\"lab-section-title\">Symbol packs</h2>" +
@@ -166,7 +194,7 @@
         "<div><dt>Validator</dt><dd>" + (validation.valid ? "valid" : "invalid") + " · " + escapeHtml((validation.answers || []).join(", ")) + "</dd></div>" +
       "</dl>";
 
-    renderBoard(card.querySelector(".lab-grid"), round.board);
+    renderBoard(card.querySelector(".lab-grid"), round.board, round.columns || Puzzles.GRID_SIZE);
     card.querySelector(".lab-answer-button").addEventListener("click", function (event) {
       toggleAnswer(card, round, event.currentTarget);
     });
@@ -181,6 +209,14 @@
   }
 
   function extraMeta(type, round) {
+    if (type.sourceWorld === "Sudoku") {
+      return "<div><dt>Sudoku checks</dt><dd>4x4 rows, columns, and 2x2 boxes. Repair count: " + escapeHtml(round.sudokuRepairCount || 1) + ".</dd></div>";
+    }
+
+    if (type.sourceWorld === "Minesweeper") {
+      return "<div><dt>Minesweeper layouts</dt><dd>" + escapeHtml(round.mineLayoutCount || 0) + " valid layouts · " + escapeHtml(round.candidateMineCount || 0) + " hidden candidates · " + escapeHtml(round.clueCount || 0) + " clues.</dd></div>";
+    }
+
     if (type.id === "logic-gate-row") {
       return "<div><dt>Logic target</dt><dd>Output-only sample; inputs, gate, and equals are disabled.</dd></div>";
     }
@@ -236,8 +272,10 @@
     }).join(", ");
   }
 
-  function renderBoard(container, board) {
+  function renderBoard(container, board, columns) {
     container.innerHTML = "";
+    container.style.gridTemplateColumns = "repeat(" + (columns || Puzzles.GRID_SIZE) + ", minmax(0, 1fr))";
+    container.dataset.columns = String(columns || Puzzles.GRID_SIZE);
     board.forEach(function (cellData, index) {
       var cell = document.createElement("button");
 
@@ -262,6 +300,7 @@
 
       if (answerCell) {
         answerCell.classList.toggle("is-correct", showing);
+        toggleRevealGlyph(answerCell, round.board[answerIndex], showing);
       }
     });
 
@@ -275,6 +314,15 @@
 
     button.textContent = showing ? "Hide answer" : "Show answer";
     answerText.textContent = showing ? answerSummary(round, answerIndices) : "Hidden";
+  }
+
+  function toggleRevealGlyph(answerCell, cellData, showing) {
+    var main = answerCell.querySelector(".cell-main");
+
+    if (!main || !cellData || !cellData.answerRevealGlyph) {
+      return;
+    }
+    main.textContent = showing ? cellData.answerRevealGlyph : (cellData.glyph || cellData.label || "");
   }
 
   function answerSummary(round, answerIndices) {

@@ -32,6 +32,10 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Pair Pact | Relationships | identifyOne | 1 | Established partner pairs | Expected-board mismatch |
 | Domino Chain | Dominoes | identifyOne | 1 | Neighboring halves match | Expected-board mismatch |
 | Dice Sum | Dice | identifyOne | 1 | Row target sums | Expected-board mismatch |
+| Sudoku Conflict | Mini Sudoku | identifyOne | 2 | One wrong digit breaks row/column/box constraints | Single-cell repair validator |
+| Mini Sudoku Swap | Mini Sudoku | multiSelect | 3 | Select two swapped digits to restore constraints | Two-cell swap uniqueness validator |
+| Minesweeper Forced Mine | Minesweeper | chooseOne | 3 | One hidden square is forced in every valid mine layout | Mine-layout enumeration validator |
+| Minesweeper Mark All | Minesweeper | multiSelect | 4 | Select all mines in the unique valid layout | Complete mine-layout enumeration validator |
 | Card Straight | Playing cards | identifyOne | 2 | Rank progressions plus suit rhythm | Expected-board mismatch |
 | Logic Gate Row | Digital logic | identifyOne | 2 | Tap the wrong output in 0/1 gate truth rows | Output-target validator |
 | Mirror Trap | Relationships | identifyOne | 2 | Mirror plus transformed partner | Expected-board mismatch |
@@ -93,6 +97,12 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Circuit Trace | Electronics | Wires, gates, outputs | Signals flow through a tiny circuit | Broken wire, inverted output, impossible gate | 4 | Backlog |
 | Domino Chain | Dominoes | Domino numeric halves | Neighbor halves match | Left mismatch, right mismatch, swapped domino | 1 | Implemented |
 | Dice Sum | Dice | Die faces 1-6, sum target | Small arithmetic totals | Sum high, sum low, wrong die | 1 | Implemented |
+| Sudoku Conflict | Mini Sudoku | Digits 1-4 | Row/column/box uniqueness | Wrong digit, row duplicate, box conflict | 2 | Implemented |
+| Mini Sudoku Swap | Mini Sudoku | Digits 1-4 | Swap repair restores all constraints | Swapped row pair, swapped column pair, box conflict pair | 3 | Implemented |
+| Jigsaw Sudoku 5 | Sudoku variant | Digits 1-5, marked regions | Rows, columns, and jigsaw regions contain each digit | Wrong region digit, swapped region pair | 5 | Backlog |
+| Minesweeper Forced Mine | Minesweeper | Hidden squares, clue numbers | Enumerate clue-consistent mine layouts | One forced mine, decoy hidden cells | 3 | Implemented |
+| Minesweeper Mark All | Minesweeper | Hidden squares, flags, clue numbers | Flag the unique mine layout | Missing mine, extra flag, clue contradiction | 4 | Implemented |
+| Minesweeper Safe Square | Minesweeper | Hidden squares, clue numbers | One hidden square is safe in all layouts | False safety, ambiguous safe cell | 4 | Backlog |
 | Yahtzee Fix | Yahtzee / dice | Five dice and category labels | Select the two dice that prevent the category | Ambiguous pair, wrong category, near-full-house decoy | 3 | Implemented |
 | Train Route | Transit maps | S, F, track straights and curves | One continuous connected route | Broken turn, dead end, wrong straight, bad station exit | 3 | Implemented |
 | Maze Exit | Maze / maps | Start, walls, paths, exits | Trace reachable route | Unreachable exit, blocked bridge, wrong branch | 2 | Implemented |
@@ -131,11 +141,15 @@ Difficulty ramps by level:
 
 The stream still uses break signatures, so a replay attempt changes the break mode, answer location, or required answer set instead of merely reshuffling the same board.
 
+Number-grid placement is deliberately moderated. Sudoku Conflict can appear early or mid-run, Mini Sudoku Swap and Minesweeper Forced Mine wait until Level 4 or later, and Minesweeper Mark All is reserved for later Ladder levels. The selector avoids back-to-back Sudoku/Minesweeper number grids when alternatives exist.
+
 ## Three-Set Free Play Selection
 
 Three-Set Free Play uses the same deterministic date and session-attempt inputs, but selects exactly three approachable puzzles instead of an open-ended ladder. It avoids retired puzzle types, prefers difficulty 1-3, and includes multi-click or word puzzles often enough to teach the broader action model without turning every Free Play set into a gauntlet.
 
 Object and recipe puzzles appear more often in Free Play because they are readable entry points into the broader system. Ladder Run can use them too, but the selector avoids back-to-back object or food puzzles so the run does not collapse into category sorting.
+
+Free Play may include one Sudoku or Minesweeper puzzle, but it avoids selecting both in the same three-puzzle set unless the set is otherwise very easy. This gives players access to number-grid logic without turning Free Play into a dense deduction exam.
 
 Free Play wrong attempts add mistakes and keep the current puzzle active. Its score is:
 
@@ -204,6 +218,22 @@ Go Liberties is `multiSelect`: the player selects every liberty of the marked gr
 ## Yahtzee Notes
 
 Yahtzee Fix uses five-dice rows with a visible category. The implemented version asks for exactly two dice that prevent a category such as a full house or large straight. This creates a compact multi-select reasoning task without requiring poker-like card knowledge or long arithmetic.
+
+## Sudoku Notes
+
+Sudoku appears as mini-Sudoku because a full 9x9 grid would not fit the phone-sized timed interface. The production board is 4x4 with digits 1-4 and heavier 2x2 box boundaries. The rule remains recognizably Sudoku: every row, column, and box must contain each digit once.
+
+Sudoku Conflict asks for a single wrong digit. Mini Sudoku Swap asks for the exact two swapped digits, then commits with **Submit Swap**. The validator does not trust the generator; it brute-forces all possible one-cell repairs or two-cell swaps and requires exactly one solution.
+
+Jigsaw Sudoku 5 is kept as backlog because 5-cell regions need careful visual boundaries that do not rely on color alone.
+
+## Minesweeper Notes
+
+Minesweeper uses a 5x5 board with clue numbers and hidden candidate squares. Revealed clues are disabled and skipped by keyboard navigation. Hidden candidates can be selected; flags appear only as the player's planned selection or during answer reveal.
+
+Minesweeper Forced Mine allows multiple complete mine layouts, but exactly one hidden square must be a mine in every valid layout. Minesweeper Mark All is stricter: the clue set must have exactly one complete mine layout, and the selected flags must match it exactly.
+
+Both validators enumerate mine placements against the clue numbers. This keeps the puzzles inferential rather than decorative and prevents guessing from a handcrafted answer key.
 
 ## Maze Notes
 
