@@ -1,0 +1,28 @@
+{
+  "got1": [
+    "009-card-straight-active.png",
+    "009-maze-key-exit.png",
+    "009-chess-attack-10-pieces.png",
+    "009-yahtzee-fix.png",
+    "009-go-liberties-readable.png",
+    "009-tetris-fit.png",
+    "009-go-capture-dense.png",
+    "009-scrabble-cross.png"
+  ],
+  "got2": [
+    "009-maze-exit.png"
+  ],
+  "captures": [
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-card-straight-active.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-maze-key-exit.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-chess-attack-10-pieces.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-yahtzee-fix.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-go-liberties-readable.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-go-liberties-selected.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-tetris-fit.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-go-capture-dense.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-scrabble-cross.png",
+    "/Users/kevinhegg/Desktop/one-wrong-move/docs/codex-reports/screenshots/009-maze-exit.png"
+  ],
+  "errors": []
+}

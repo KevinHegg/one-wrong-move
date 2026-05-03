@@ -98,17 +98,31 @@ h1 {
   line-height: 1;
 }
 
+.timer-cluster {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 .timer-box {
-  min-width: 72px;
+  min-width: 58px;
   text-align: right;
 }
 
 .timer-box strong {
   display: block;
   margin-top: 2px;
-  font-size: 1.25rem;
+  font-size: 1.16rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+
+.level-timer-box {
+  color: var(--accent);
+}
+
+.level-timer-box.is-low-time {
+  color: var(--bad);
 }
 
 .status-bar {
@@ -388,6 +402,9 @@ h2 {
 .tile--arrow,
 .tile--track,
 .tile--station,
+.tile--maze,
+.tile--letter,
+.tile--tetris,
 .tile--abstract,
 .tile--divider,
 .tile--mirror-left,
@@ -447,35 +464,49 @@ h2 {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.tile--go {
+  background:
+    linear-gradient(90deg, transparent 48%, rgba(92, 79, 46, 0.24) 48%, rgba(92, 79, 46, 0.24) 52%, transparent 52%),
+    linear-gradient(0deg, transparent 48%, rgba(92, 79, 46, 0.24) 48%, rgba(92, 79, 46, 0.24) 52%, transparent 52%),
+    #f5edd6;
+}
+
 .tile--go .cell-main {
-  font-size: 1.35rem;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 1.55rem;
+  line-height: 1;
 }
 
 .tile--go.go-black .cell-main {
+  background: #111111;
   color: #111111;
 }
 
 .tile--go.go-white .cell-main {
-  color: #f8f8f4;
-  text-shadow: 0 0 0 #111111, 0 1px 2px rgba(0, 0, 0, 0.35);
+  border: 2px solid #111111;
+  background: #fffdfa;
+  color: #fffdfa;
+  text-shadow: none;
 }
 
-.tile--go.liberty .cell-main {
-  color: var(--accent);
-  font-size: 1.15rem;
+.tile--go.go-empty .cell-main {
+  width: 0.44rem;
+  height: 0.44rem;
+  background: rgba(32, 32, 29, 0.45);
+  color: transparent;
+  font-size: 0;
 }
 
 .tile--go.go-marked {
-  box-shadow: inset 0 0 0 3px rgba(47, 93, 98, 0.36);
+  box-shadow: inset 0 0 0 3px rgba(47, 93, 98, 0.55);
 }
 
 .tile--go.go-captured {
   box-shadow: inset 0 0 0 2px rgba(156, 61, 53, 0.28);
-}
-
-.tile--go.go-empty .cell-main {
-  color: rgba(32, 32, 29, 0.42);
-  font-size: 1.05rem;
 }
 
 .token-logic .cell-main,
@@ -531,6 +562,47 @@ h2 {
 .tile--station {
   border-color: rgba(47, 93, 98, 0.34);
   background: #f6f8f5;
+}
+
+.token-maze .cell-main,
+.token-letter .cell-main,
+.token-tetris .cell-main {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.maze-wall {
+  background: #24241f;
+  color: #ffffff;
+}
+
+.maze-path {
+  background: #f6f8f5;
+}
+
+.maze-start,
+.maze-exit,
+.maze-key {
+  border-color: rgba(47, 93, 98, 0.5);
+  background: #fffdfa;
+}
+
+.tile--letter {
+  background: #fffdfa;
+}
+
+.token-letter .cell-main {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.18rem;
+}
+
+.tile--tetris {
+  background: #f6f8f5;
+}
+
+.token-tetris .cell-main {
+  font-size: 1.1rem;
 }
 
 .token-divider .cell-main,

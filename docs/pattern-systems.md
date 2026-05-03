@@ -43,6 +43,11 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Checkers Jump | Checkers | identifyOne | 3 | Numbered diagonal movement | Movement validator |
 | Go Capture Max | Go / baduk | chooseOne | 4 | Best move captures most white stones | Independent capture validator |
 | Go Liberties | Go / baduk | multiSelect | 4 | Select all liberties of marked group | Independent liberty validator |
+| Yahtzee Fix | Yahtzee / dice | multiSelect | 3 | Select two dice that break a visible category | Exact answer-set validator |
+| Maze Exit | Maze / map | chooseOne | 2 | Trace from S to the one reachable exit | Reachability validator |
+| Maze Key Exit | Maze / map | twoStep | 3 | Choose the reachable key and matching exit | Two-step answer validator |
+| Scrabble Cross | Word tiles | twoStep | 3 | Place one rack tile to form valid crossing words | Two-step answer validator |
+| Tetris Fit | Polyominoes | multiSelect | 3 | Select the exact tetromino placement cells | Exact answer-set validator |
 
 ## Retired / Lab-Only Inventory
 
@@ -76,7 +81,12 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Circuit Trace | Electronics | Wires, gates, outputs | Signals flow through a tiny circuit | Broken wire, inverted output, impossible gate | 4 | Backlog |
 | Domino Chain | Dominoes | Domino numeric halves | Neighbor halves match | Left mismatch, right mismatch, swapped domino | 1 | Implemented |
 | Dice Sum | Dice | Die faces 1-6, sum target | Small arithmetic totals | Sum high, sum low, wrong die | 1 | Implemented |
+| Yahtzee Fix | Yahtzee / dice | Five dice and category labels | Select the two dice that prevent the category | Ambiguous pair, wrong category, near-full-house decoy | 3 | Implemented |
 | Train Route | Transit maps | S, F, track straights and curves | One continuous connected route | Broken turn, dead end, wrong straight, bad station exit | 3 | Implemented |
+| Maze Exit | Maze / maps | Start, walls, paths, exits | Trace reachable route | Unreachable exit, blocked bridge, wrong branch | 2 | Implemented |
+| Maze Key Exit | Maze / maps | Start, keys, exits, walls | Choose reachable key plus opened exit | Wrong key, wrong exit, unreachable pair | 3 | Implemented |
+| Scrabble Cross | Word tiles | Board letters, blank square, rack letters | One tile makes crossing words | Bad horizontal word, bad vertical word, wrong square | 3 | Implemented |
+| Tetris Fit | Polyominoes | Tetromino cells and target row | One piece placement completes the row | Shifted placement, wrong tetromino, incomplete line | 3 | Implemented |
 | Animal Food Web | Ecology | Plant, insect, frog, snake, hawk | Food-chain order | Wrong habitat, wrong chain position, predator/prey mismatch | 2 | Implemented |
 | Compass Rose | Compass / clock | Cardinal and diagonal directions | Repeated bearing rotation | Wrong amount, opposite, skipped bearing | 2 | Implemented |
 | Calendar Week | Calendar | Days and weekend markers | Day cycle and grouping | Skipped day, wrong weekend marker, impossible sequence | 2 | Backlog |
@@ -87,9 +97,34 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Map Compass Walk | Maps | Directions and landmarks | Path follows bearings to landmarks | Wrong turn, impossible crossing, missed landmark | 3 | Backlog |
 | Set Attribute Grid | Set-style logic | Shape, fill, count, orientation | Rows control attributes | Wrong fill, wrong count, wrong orientation | 4 | Backlog |
 
+## Survival Run Selection
+
+Survival Run replaces the fixed three-round daily format. The stream is deterministic from the local date and session attempt, but it is long enough for practical play. The selector keeps retired puzzles out of the main run, avoids immediate puzzle-type repeats, rotates source worlds, and avoids back-to-back card, Go, or movement/path families when alternatives exist.
+
+Difficulty ramps by level:
+
+- Levels 1-3: approachable but not trivial.
+- Levels 4-8: medium reasoning.
+- Levels 9+: harder source-world puzzles and denser variants.
+
+The stream still uses break signatures, so a replay attempt changes the break mode, answer location, or required answer set instead of merely reshuffling the same board.
+
+## Two-Click And Multi-Answer Design
+
+Some source worlds need more than one selected square. Go Liberties, Yahtzee Fix, Tetris Fit, Maze Key Exit, and Scrabble Cross would be awkward if every tap immediately counted as a final move.
+
+The rule is:
+
+- Taps are planning when the puzzle uses `multiSelect` or `twoStep`.
+- **Submit Move** is the committed move.
+- A wrong committed move ends Survival Run.
+- Correct submissions pause timers and show feedback.
+
+This preserves the one-wrong-move tension while preventing accidental finger taps from ending a run during a multi-cell solve.
+
 ## Chess Attack Notes
 
-Chess Attack uses all non-pawn chess pieces: king, queen, rook, bishop, and knight. The piece and number are rendered on the same square with a small corner badge. The rule is sequence-based: each numbered piece must legally attack the next numbered piece.
+Chess Attack uses all non-pawn chess pieces: king, queen, rook, bishop, and knight. Current production boards aim for 9-10 numbered pieces on the 5x5 board. The piece and number are rendered on the same square with a small corner badge. The rule is sequence-based: each numbered piece must legally attack the next numbered piece.
 
 The validator computes:
 
@@ -99,7 +134,7 @@ The validator computes:
 - knight attacks in an L-shape
 - king attacks one square in any direction
 
-The correct answer is the first numbered attacker that fails. Later consequences do not create extra answers.
+The correct answer is the first numbered attacker that fails. Later consequences do not create extra answers. Validators reject pawns, boards with too few numbered pieces, and boards where the first illegal attacker does not match the declared answer.
 
 ## Go Puzzle Notes
 
@@ -111,9 +146,25 @@ Go uses simplified 5x5 rules:
 - A move captures a white group when it fills that group's last liberty.
 - Ko and whole-board life-and-death are out of scope.
 
-Go Capture Max is `chooseOne`: the player taps the empty point that captures the most white stones. The board is valid only if one best move exists and it captures at least one stone.
+Go Capture Max is `chooseOne`: the player taps the empty point that captures the most white stones. The board is denser than the previous version, aiming for 12-18 stones, multiple white groups, and decoy captures. The board is valid only if one best move exists and captures at least two stones in medium/hard variants.
 
-Go Liberties is `multiSelect`: the player selects every liberty of the marked group and submits. The correct set has one to four cells. Wrong submissions add mistakes and keep the timer running.
+Go Liberties is `multiSelect`: the player selects every liberty of the marked group and submits. Marked groups are usually size 2-4, and the correct liberty set is exact. Diagonal empty points are intentionally used as decoys because they are not liberties.
+
+## Yahtzee Notes
+
+Yahtzee Fix uses five-dice rows with a visible category. The implemented version asks for exactly two dice that prevent a category such as a full house or large straight. This creates a compact multi-select reasoning task without requiring poker-like card knowledge or long arithmetic.
+
+## Maze Notes
+
+Maze Exit uses a 5x5 route map with a start, walls, paths, and multiple exits. The player chooses the single exit reachable by open paths.
+
+Maze Key Exit adds a second committed choice: choose the reachable key, then choose the exit it opens. The two-step answer mode keeps this legible in the main game and in the lab.
+
+## Word And Tetris Notes
+
+Scrabble Cross uses a curated word list so the solve is about crossing-word logic, not obscure vocabulary. The player chooses one blank square and one rack tile.
+
+Tetris Fit asks the player to choose the exact four cells for a tetromino placement that completes a target row. The renderer uses compact colored cells and letters rather than animated pieces, keeping the static-site implementation simple and accessible.
 
 ## Avoiding Ambiguity
 
@@ -133,13 +184,15 @@ Every generated board should satisfy these constraints:
 
 Every generated board needs a validator because procedural puzzles fail in quiet ways. A generator can accidentally create two valid answers, hide the rule, reuse a stale break, or choose a break that creates an earlier consequence.
 
-Validators enforce the product promise. They check board size, required metadata, active cells, answer mode, unique single answer or exact multi-answer set, answer agreement, difficulty ranges, source-world diversity, retired-type exclusion, and session variation.
+Validators enforce the product promise. They check board size, required metadata, active cells, answer mode, unique single answer or exact multi-answer/two-step set, answer agreement, difficulty ranges, source-world diversity, retired-type exclusion, session variation, and survival stream rules.
 
 The current strongest validators encode domain logic independently:
 
 - Chess Attack computes legal attacks from piece positions.
 - Go Capture Max computes capture scores from the board.
 - Go Liberties computes the marked group's liberties from the board.
+- Maze Exit computes reachability from the visible walls and paths.
+- Survival validation tests the first 50 levels across 300 dates and five session attempts.
 
 Expected-board validators remain useful for controlled pattern systems, but more production puzzle types should graduate to independent domain validators over time.
 
