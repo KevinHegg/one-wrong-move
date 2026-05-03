@@ -73,6 +73,12 @@ Every puzzle declares targeting metadata so the instruction and click behavior a
 
 The lab displays target type, clickable target count, disabled target count, and accepted row/column/set behavior.
 
+## Symbol System
+
+The app uses a local curated symbol catalog in `public/symbols.js`. Player-facing puzzle symbols use actual glyphs plus readable labels instead of unexplained two-letter codes. Animal Food Web now shows objects such as `🌱 Plant`, `🐛 Insect`, `🐸 Frog`, `🐍 Snake`, and `🦅 Hawk`; Pair Pact shows real pairs such as `🐝 Bee` and `🌸 Flower`.
+
+Internal IDs may stay short, but active boards, briefings, symbol chips, examples, lab cards, and accessibility labels should never use cryptic abbreviations as the primary visible symbol when an object glyph or readable label exists. The validation suite includes `scripts/validate-symbol-display.js` to catch regressions.
+
 ## Time Score Utility
 
 The lower-is-better time score remains available in `public/scoring.js` for validation and historical reports:
@@ -110,6 +116,11 @@ The survival stream selects active production puzzle types from a deterministic 
 - Train Route
 - Mirror Trap
 - Pair Pact
+- Object Row Imposter
+- Category Swap
+- Dish Ingredient Imposter
+- Recipe Swap
+- Object Rack Complete
 - Rotation Logic
 - Latin Trap
 - Checkers Jump
@@ -140,7 +151,7 @@ When served locally, visit:
 http://localhost:8080/lab.html
 ```
 
-The lab renders production puzzle types separately from retired lab-only types. Each card shows source world, difficulty, answer mode, target type, clickable/disabled target counts, symbol bank, sample board, hidden answer toggle, break signature, evidence string, and validator status. It also includes a Ladder stream preview and a Three-Set Free Play preview.
+The lab renders production puzzle types separately from retired lab-only types. Each card shows source world, difficulty, answer mode, target type, clickable/disabled target counts, symbol bank, sample board, hidden answer toggle, break signature, evidence string, and validator status. It also includes a Ladder stream preview, a Three-Set Free Play preview, symbol pack inventory, and theme pack inventory.
 
 ## Run Locally
 
@@ -174,6 +185,7 @@ node scripts/validate-survival.js
 node scripts/validate-targeting.js
 node scripts/validate-freeplay.js
 node scripts/validate-word-puzzles.js
+node scripts/validate-symbol-display.js
 ```
 
 ## Netlify Deploy Settings
@@ -198,6 +210,7 @@ The root `index.html` loads the same app files from `public/` so the game can be
 - The daily survival stream uses the browser's local date.
 - There is no daily archive, leaderboard, cloud save, or practice mode yet.
 - Puzzle generation uses curated deterministic templates rather than a full procedural search engine.
+- Object and recipe theme packs are curated to avoid ambiguous trivia, but they are not a full knowledge graph.
 - Some validators compare against generated expected boards; the strongest validators independently compute Go liberties, Go captures, chess attacks, maze reachability, and survival stream rules.
 - Same-session variation is stored locally in the current browser session only.
 - Share text copies to the clipboard when the browser allows it; otherwise it appears in an alert and selectable text area.

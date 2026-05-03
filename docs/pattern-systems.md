@@ -12,6 +12,8 @@ The abstract glyph pool improved the original memory MVP, but it still risked fe
 
 Real-world systems give the puzzle a shared vocabulary. Cards suggest rank and suit. Chess suggests movement. Go suggests liberties. Logic gates suggest truth tables. Dominoes suggest matching. These systems make the solve more memorable and let difficulty come from reasoning instead of visual clutter.
 
+The symbol library adds a stricter rule: player-facing symbols should be actual readable things. Internal IDs like `plant` or `frog` are fine, but the board should show `🌱 Plant` and `🐸 Frog`, not `PL` and `FR`. Logic gates, card ranks, chess numbers, and map labels can stay compact because those abbreviations are domain-standard and briefed.
+
 ## 5x5 Constraints
 
 A 5x5 board is small enough for phones and large enough for evidence. It can show five rows of examples, five columns of constraints, a compact path, or a source/copy split. The constraint is also unforgiving:
@@ -36,6 +38,11 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Rotation Logic | Compass | identifyOne | 2 | Directions rotate by fixed turns | Expected-board mismatch |
 | Latin Trap | Latin square | identifyOne | 2 | One of each symbol per row/column | Expected-board mismatch |
 | Animal Food Web | Ecology | identifyOne | 2 | Obvious food-chain order | Expected-board mismatch |
+| Object Row Imposter | Objects / themes | identifyOne | 1 | One object outside a category row | Expected-board mismatch |
+| Category Swap | Objects / themes | multiSelect | 2 | Two objects swapped between category rows | Exact mismatch-set validator |
+| Dish Ingredient Imposter | Food / recipes | identifyOne | 1 | One ingredient outside a dish row | Expected-board mismatch |
+| Recipe Swap | Food / recipes | multiSelect | 2 | Two ingredients swapped between dish rows | Exact mismatch-set validator |
+| Object Rack Complete | Objects / themes | twoStep | 2 | Choose blank and rack object that completes the row | Two-step rack validator |
 | Compass Rose | Compass | identifyOne | 2 | Bearing rotation sequence | Expected-board mismatch |
 | Chess Attack | Chess | identifyOne | 3 | Numbered piece attacks next piece | Independent chess attack validator |
 | Poker Hand Trap | Playing cards | identifyOne | 3 | Row declares hand class | Expected-board mismatch |
@@ -98,6 +105,11 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Maze Bridge Repair | Maze / maps | Start, exit, walls, broken bridges | Exactly two repairs reconnect the route | Wrong bridge, alternate invalid pair, blocked shortcut | 3 | Implemented |
 | Row Rhythm | Logic grid | Repeated row symbols | Each row follows a count-and-order grammar | Broken row, duplicate token, wrong row total | 2 | Implemented |
 | Animal Food Web | Ecology | Plant, insect, frog, snake, hawk | Food-chain order | Wrong habitat, wrong chain position, predator/prey mismatch | 2 | Implemented |
+| Object Row Imposter | Object categories | Tools, instruments, weather, animals, sports | One object outside the row theme | Food in tools, tool in animals, sport in weather | 1 | Implemented |
+| Category Swap | Object categories | Two clean theme rows plus support rows | Select two objects swapped between categories | Cross-row swap, wrong family, missing object | 2 | Implemented |
+| Dish Ingredient Imposter | Food / recipes | Dish plus common ingredients | One ingredient does not belong with dish | Tool in taco, sport in pizza, animal in burger | 1 | Implemented |
+| Recipe Swap | Food / recipes | Two dish rows with ingredients | Select two swapped ingredients | Tomato/beans swap, carrot/sushi swap, cheese/protein swap | 2 | Implemented |
+| Object Rack Complete | Object categories | Board rows plus separate rack objects | Choose blank and rack object that completes row | Wrong blank, wrong rack object, theme mismatch | 2 | Implemented |
 | Compass Rose | Compass / clock | Cardinal and diagonal directions | Repeated bearing rotation | Wrong amount, opposite, skipped bearing | 2 | Implemented |
 | Calendar Week | Calendar | Days and weekend markers | Day cycle and grouping | Skipped day, wrong weekend marker, impossible sequence | 2 | Backlog |
 | Music Measure | Music | Notes, rests, beats | Measures have equal beat totals | Too many beats, too few beats, wrong rest value | 3 | Backlog |
@@ -122,6 +134,8 @@ The stream still uses break signatures, so a replay attempt changes the break mo
 ## Three-Set Free Play Selection
 
 Three-Set Free Play uses the same deterministic date and session-attempt inputs, but selects exactly three approachable puzzles instead of an open-ended ladder. It avoids retired puzzle types, prefers difficulty 1-3, and includes multi-click or word puzzles often enough to teach the broader action model without turning every Free Play set into a gauntlet.
+
+Object and recipe puzzles appear more often in Free Play because they are readable entry points into the broader system. Ladder Run can use them too, but the selector avoids back-to-back object or food puzzles so the run does not collapse into category sorting.
 
 Free Play wrong attempts add mistakes and keep the current puzzle active. Its score is:
 
@@ -204,6 +218,14 @@ Scrabble Cross uses a curated word list so the solve is about crossing-word logi
 Mini Crossword Fill is a tighter two-step word puzzle with one blank and one rack letter. Crossword Pair expands that into a planned multi-select repair: choose two blanks plus the two rack letters that complete the small crossing system. Rack tiles are visually separate from the 5x5 board so players do not confuse board squares with candidate letters.
 
 Tetris Fit asks the player to choose the exact four cells for a tetromino placement that completes a target row. The renderer uses compact colored cells and letters rather than animated pieces, keeping the static-site implementation simple and accessible.
+
+## Symbol And Theme Pack Notes
+
+The local symbol catalog is split into reusable packs: ecology, food, kitchen tools, habitat animals, music, weather/space, sports/games, workshop tools, household objects, relationships, cards, chess, dice, dominoes, Go, logic, and maze labels. Each symbol has a glyph, label, short label, ARIA label, category, tags, fallback, and display kind.
+
+Theme packs group symbols into curated rows such as Kitchen Tools, Workshop Tools, Forest Animals, Musical Instruments, Weather, Sports Balls, Salad Ingredients, Pizza Ingredients, Taco Ingredients, and Breakfast Foods. Each theme pack also carries obvious imposters. Trivia-heavy themes, such as presidents or currency systems, remain backlog or lab-only unless the briefing teaches the needed facts.
+
+The banned abbreviation list for normal play is `PL`, `IN`, `FR`, `SN`, `HW`, `FI`, `BR`, `RB`, `FX`, `BE`, and `FL`. These can exist only in migration notes or internal documentation, not as primary board or briefing symbols.
 
 ## Circuit And Repair Notes
 

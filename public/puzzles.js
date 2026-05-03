@@ -37,13 +37,17 @@
   var DICE = S.dice;
   var DIRECTIONS = S.directions;
   var ANIMALS = S.animals;
+  var FOOD = S.food;
+  var KITCHEN = S.kitchen;
+  var THEME_PACKS = Symbols.themePacks || [];
+  var SYMBOL_BY_ID = Symbols.symbolById || function (id) { return { id: id, glyph: id, label: id, ariaLabel: id }; };
 
   var PAIR_SYMBOLS = [
-    { a: "☾", b: "☀", aLabel: "moon", bLabel: "sun" },
-    { a: "⚿", b: "▣", aLabel: "key", bLabel: "lock" },
-    { a: "☠", b: "⚚", aLabel: "skull", bLabel: "bone" },
-    { a: "BE", b: "FL", aLabel: "bee", bLabel: "flower" },
-    { a: "◉", b: "👁", aLabel: "eye mark", bLabel: "eye" }
+    pairSymbols("moon", "sun"),
+    pairSymbols("key", "lock"),
+    pairSymbols("skull", "bone"),
+    pairSymbols("bee", "flower"),
+    pairSymbols("thread", "needle")
   ];
 
   var puzzleTypes = [
@@ -115,11 +119,37 @@
       difficulty: 1,
       answerMode: ANSWER_MODES.identifyOne,
       cognitiveSkill: "pair inference",
-      symbols: ["☾", "☀", "⚿", "▣", "☠", "⚚", "BE", "FL"],
+      symbols: flattenPairSymbols(PAIR_SYMBOLS),
       briefing: "Symbols travel in real-world partner pairs. Tap the symbol with the wrong partner.",
-      example: example(5, "Moon pairs with sun; key pairs with lock.", ["☾", "☀", "•", "⚿", "▣"]),
+      example: example(5, "Moon pairs with sun; bee pairs with flower.", ["🌙", "☀️", "•", "🐝", "🌸"]),
       generate: generatePairPact,
       validator: validateExpectedMismatch
+    }),
+    type({
+      id: "object-row-imposter",
+      name: "Object Row Imposter",
+      sourceWorld: "Objects",
+      difficulty: 1,
+      answerMode: ANSWER_MODES.identifyOne,
+      cognitiveSkill: "category grouping",
+      symbols: objectPuzzleSymbols(),
+      briefing: "Each row is a clean group of related objects. Tap the object that does not belong.",
+      example: example(5, "Four kitchen tools and one fruit: tap the fruit.", ["🔪", "🥄", "🍳", "🍌", "🥣"]),
+      generate: generateObjectRowImposter,
+      validator: validateExpectedMismatch
+    }),
+    type({
+      id: "category-swap",
+      name: "Category Swap",
+      sourceWorld: "Objects",
+      difficulty: 2,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "category repair",
+      symbols: objectPuzzleSymbols(),
+      briefing: "Two objects were swapped between category rows. Select both wrong objects, then submit.",
+      example: example(5, "A wrench in foods and a tomato in tools must trade back.", ["🔧", "🍅", "→", "2", "moves"]),
+      generate: generateCategorySwap,
+      validator: validateObjectSwap
     }),
     type({
       id: "domino-chain",
@@ -146,6 +176,45 @@
       example: example(5, "2 + 3 + 1 = 6.", ["2", "3", "1", "=", "6"]),
       generate: generateDiceSum,
       validator: validateExpectedMismatch
+    }),
+    type({
+      id: "dish-ingredient-imposter",
+      name: "Dish Ingredient Imposter",
+      sourceWorld: "Food",
+      difficulty: 1,
+      answerMode: ANSWER_MODES.identifyOne,
+      cognitiveSkill: "recipe grouping",
+      symbols: dishPuzzleSymbols(),
+      briefing: "Each row shows a dish and common ingredients. Tap the ingredient that does not belong.",
+      example: example(5, "Taco row: taco, corn, meat, lettuce, cheese; a wrench would not belong.", ["🌮", "🌽", "🥩", "🥬", "🔧"]),
+      generate: generateDishIngredientImposter,
+      validator: validateExpectedMismatch
+    }),
+    type({
+      id: "recipe-swap",
+      name: "Recipe Swap",
+      sourceWorld: "Food",
+      difficulty: 2,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "recipe repair",
+      symbols: dishPuzzleSymbols(),
+      briefing: "Two ingredients were swapped between dishes. Select both wrong ingredients, then submit.",
+      example: example(5, "Tomato belongs with pizza; beans belong with taco.", ["🍕", "🍅", "↔", "🌮", "🫘"]),
+      generate: generateRecipeSwap,
+      validator: validateObjectSwap
+    }),
+    type({
+      id: "object-rack-complete",
+      name: "Object Rack Complete",
+      sourceWorld: "Objects",
+      difficulty: 2,
+      answerMode: ANSWER_MODES.twoStep,
+      cognitiveSkill: "category completion",
+      symbols: objectPuzzleSymbols(),
+      briefing: "Choose the blank square, then choose the rack object that completes that row's category.",
+      example: example(5, "Pick the blank in a tool row, then pick the tool from the rack.", ["🔪", "□", "🥄", "+", "🍳"]),
+      generate: generateObjectRackComplete,
+      validator: validateObjectRackComplete
     }),
     type({
       id: "card-straight",
@@ -193,9 +262,9 @@
       difficulty: 2,
       answerMode: ANSWER_MODES.identifyOne,
       cognitiveSkill: "mapping inference",
-      symbols: ["☾", "☀", "⚿", "▣", "☠", "⚚", "BE", "FL"],
+      symbols: flattenPairSymbols(PAIR_SYMBOLS),
       briefing: "The right side mirrors the left, but symbols transform into counterparts.",
-      example: example(5, "A mirror copy changes key into lock and skull into bone.", ["⚿", "☠", "↔", "⚚", "▣"]),
+      example: example(5, "A mirror copy changes key into lock and bee into flower.", ["🔑", "🐝", "↔", "🌸", "🔒"]),
       generate: generateMirrorTrap,
       validator: validateExpectedMismatch
     }),
@@ -432,8 +501,8 @@
       answerMode: ANSWER_MODES.identifyOne,
       cognitiveSkill: "relationship ordering",
       symbols: ANIMALS,
-      briefing: "Each row shows an obvious food chain. Tap the animal that does not belong.",
-      example: example(5, "Plant feeds insect, frog eats insect, snake eats frog, hawk hunts snake.", ["PL", "IN", "FR", "SN", "HW"]),
+      briefing: "Read each row as a simple food chain. Tap the animal or plant that does not belong.",
+      example: example(5, "Plant feeds insect; frog eats insect; snake eats frog; hawk hunts snake.", ["🌱", "🐛", "🐸", "🐍", "🦅"]),
       generate: generateAnimalFoodWeb,
       validator: validateExpectedMismatch
     }),
@@ -465,7 +534,7 @@
       retired: Boolean(config.retired),
       retiredReason: config.retiredReason || "",
       symbols: config.symbols.map(symbolLabel),
-      symbolBank: config.symbols.map(symbolLabel),
+      symbolBank: config.symbols.map(symbolChipData),
       briefing: config.briefing,
       briefingText: config.briefing,
       example: config.example,
@@ -576,6 +645,12 @@
         candidates = prefer(candidates, function (candidate) {
           return !(candidate.isMovementPuzzle && previous.isMovementPuzzle);
         });
+        candidates = prefer(candidates, function (candidate) {
+          return !(isObjectFamily(candidate) && isObjectFamily(previous));
+        });
+        candidates = prefer(candidates, function (candidate) {
+          return !(candidate.sourceWorld === "Food" && previous.sourceWorld === "Food");
+        });
       }
 
       if (level <= 3 && !selected.some(function (candidate) { return candidate.sourceWorld !== "Symbol Grammar"; })) {
@@ -596,7 +671,7 @@
     });
     var selected = [];
     var preferredFirst = prefer(activeTypes, function (candidate) {
-      return ["domino-chain", "dice-sum", "suit-cycle", "pair-pact", "maze-exit"].indexOf(candidate.id) !== -1;
+      return ["object-row-imposter", "dish-ingredient-imposter", "domino-chain", "dice-sum", "suit-cycle", "pair-pact", "maze-exit"].indexOf(candidate.id) !== -1;
     });
     selected.push(shuffle(preferredFirst, random)[0]);
 
@@ -637,12 +712,12 @@
 
       if (roundIndex === 0) {
         candidates = prefer(candidates, function (candidate) {
-          return ["suit-cycle", "domino-chain", "dice-sum", "pair-pact"].indexOf(candidate.id) !== -1;
+          return ["object-row-imposter", "dish-ingredient-imposter", "suit-cycle", "domino-chain", "dice-sum", "pair-pact"].indexOf(candidate.id) !== -1;
         });
       }
       if (roundIndex === 1) {
         candidates = prefer(candidates, function (candidate) {
-          return ["card-straight", "logic-gate-row", "mirror-trap", "chess-attack"].indexOf(candidate.id) !== -1;
+          return ["category-swap", "recipe-swap", "object-rack-complete", "card-straight", "logic-gate-row", "mirror-trap", "chess-attack"].indexOf(candidate.id) !== -1;
         });
       }
       if (roundIndex === 2) {
@@ -688,6 +763,10 @@
     return preferred.length > 0 ? preferred : candidates;
   }
 
+  function isObjectFamily(candidate) {
+    return ["Objects", "Food", "Ecology"].indexOf(candidate.sourceWorld) !== -1 || candidate.id === "animal-food-web";
+  }
+
   function normalizeRound(selectedType, round, roundNumber) {
     var answerMode = round.answerMode || selectedType.answerMode || ANSWER_MODES.identifyOne;
     var answerIndices = round.answerIndices || (typeof round.answerIndex === "number" ? [round.answerIndex] : []);
@@ -701,7 +780,7 @@
     normalized.cognitiveSkill = selectedType.cognitiveSkill;
     normalized.roundNumber = roundNumber;
     normalized.symbols = selectedType.symbols.slice();
-    normalized.symbolBank = normalized.symbols.slice();
+    normalized.symbolBank = selectedType.symbolBank ? selectedType.symbolBank.slice() : normalized.symbols.slice();
     normalized.briefing = selectedType.briefing;
     normalized.briefingText = selectedType.briefing;
     normalized.example = cloneExample(selectedType.example);
@@ -859,7 +938,7 @@
       expected: expected,
       answerIndex: selected.answerIndex,
       answerIndices: [selected.answerIndex],
-      explanation: config.explanation,
+      explanation: typeof config.explanation === "function" ? config.explanation(selected, expected, board) : config.explanation,
       wrongTapHint: config.wrongTapHint,
       breakSignature: selected.breakSignature,
       breakMode: selected.breakMode,
@@ -955,6 +1034,44 @@
     }));
   }
 
+  function generateObjectRowImposter(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var packs = shuffle(themePackSubset(["kitchen-tools", "forest-animals", "musical-instruments", "weather", "sports-balls", "workshop-tools"]), random).slice(0, GRID_SIZE);
+    var expectedBoard = [];
+    var candidates = [];
+
+    packs.forEach(function (pack, row) {
+      pack.items.slice(0, GRID_SIZE).forEach(function (symbol, col) {
+        expectedBoard[positionToIndex(row, col)] = objectCell(positionToIndex(row, col), symbol, pack, "object");
+      });
+      pack.imposters.slice(0, 2).forEach(function (imposter, modeIndex) {
+        var answerIndex = positionToIndex(row, GRID_SIZE - 2 + modeIndex);
+        addCandidate(candidates, "object-row-imposter", "imposter-in-" + pack.id, answerIndex, objectCell(answerIndex, imposter, pack, "object"));
+      });
+    });
+    return makeExpectedRound("object-row-imposter", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, function (selected) {
+      return labelForCell(selected.wrong) + " does not belong in that object row.";
+    }, "Find the row's shared theme, then tap the one object outside it.", function (selected) {
+      return labelForCell(selected.wrong) + " is the only object outside the row's category.";
+    }));
+  }
+
+  function generateCategorySwap(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var pairs = [
+      ["kitchen-tools", "workshop-tools", 1, 3],
+      ["forest-animals", "musical-instruments", 2, 4],
+      ["weather", "sports-balls", 0, 4],
+      ["salad-ingredients", "kitchen-tools", 1, 2],
+      ["pizza-ingredients", "workshop-tools", 3, 1]
+    ].map(function (item) {
+      return buildThemeSwapCandidate("category-swap", item[0], item[1], item[2], item[3]);
+    });
+    var selected = selectCandidate(shuffle(pairs, random), avoidBreakSignatures || []);
+
+    return exactSetRound(ANSWER_MODES.multiSelect, selected.board, selected.expected, selected.answerIndices, "Select both swapped objects to repair the category rows.", "Pick exactly the two objects sitting in the wrong category rows.", selected.breakSignature, selected.mode, "The two selected objects belong in each other's rows.", selected.evidence, 2);
+  }
+
   function generateDominoChain(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
     var random = createRandom(seed);
     var expectedBoard = [];
@@ -1020,6 +1137,78 @@
       round.wrongTapHint = "Only dice can be wrong in this puzzle: add the dice and compare with the total.";
     }
     return round;
+  }
+
+  function generateDishIngredientImposter(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var rows = shuffle(dishRows(), random).slice(0, GRID_SIZE);
+    var expectedBoard = [];
+    var candidates = [];
+
+    rows.forEach(function (dish, row) {
+      expectedBoard[positionToIndex(row, 0)] = objectCell(positionToIndex(row, 0), SYMBOL_BY_ID(dish.dish), { id: dish.id, name: dish.name }, "dish");
+      dish.ingredients.slice(0, 4).forEach(function (symbolId, offset) {
+        expectedBoard[positionToIndex(row, offset + 1)] = objectCell(positionToIndex(row, offset + 1), SYMBOL_BY_ID(symbolId), { id: dish.id, name: dish.name }, "ingredient");
+      });
+      dish.imposters.slice(0, 2).forEach(function (symbolId, imposterIndex) {
+        var answerIndex = positionToIndex(row, 3 + imposterIndex);
+        addCandidate(candidates, "dish-ingredient-imposter", "wrong-ingredient-" + dish.id, answerIndex, objectCell(answerIndex, SYMBOL_BY_ID(symbolId), { id: dish.id, name: dish.name }, "ingredient"));
+      });
+    });
+    return makeExpectedRound("dish-ingredient-imposter", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, function (selected) {
+      return labelForCell(selected.wrong) + " is not one of the common ingredients for that dish.";
+    }, "Read the dish at the start of the row, then find the ingredient that does not fit.", function (selected) {
+      return labelForCell(selected.wrong) + " is the only ingredient outside the row's dish.";
+    }));
+  }
+
+  function generateRecipeSwap(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var swaps = [
+      ["taco", "pizza", 1, 3],
+      ["salad", "sushi", 2, 2],
+      ["burger", "breakfast", 3, 1],
+      ["pizza", "salad", 2, 4],
+      ["sushi", "taco", 1, 4]
+    ].map(function (item) {
+      return buildRecipeSwapCandidate(item[0], item[1], item[2], item[3]);
+    });
+    var selected = selectCandidate(shuffle(swaps, random), avoidBreakSignatures || []);
+
+    return exactSetRound(ANSWER_MODES.multiSelect, selected.board, selected.expected, selected.answerIndices, "Select both swapped ingredients to repair the dishes.", "Pick exactly the two ingredients that belong in each other's dish rows.", selected.breakSignature, selected.mode, "Those two ingredients were swapped between dishes.", selected.evidence, 2);
+  }
+
+  function generateObjectRackComplete(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var candidates = [
+      buildObjectRackCandidate("kitchen-tools", 1, ["banana", "basketball", "wrench", "tomato"]),
+      buildObjectRackCandidate("musical-instruments", 2, ["hammer", "soccer-ball", "cloud", "cheese"]),
+      buildObjectRackCandidate("weather", 3, ["pizza", "fox", "knife", "basketball"]),
+      buildObjectRackCandidate("sports-balls", 1, ["guitar", "tomato", "owl", "wrench"]),
+      buildObjectRackCandidate("workshop-tools", 2, ["banana", "flower", "trumpet", "coffee"])
+    ];
+    var selected = selectCandidate(shuffle(candidates, random), avoidBreakSignatures || []);
+
+    return {
+      answerMode: ANSWER_MODES.twoStep,
+      board: selected.board,
+      answerIndex: selected.answerIndices[0],
+      answerIndices: selected.answerIndices,
+      answerSteps: [
+        { role: "board-square", index: selected.blankIndex, tokenId: "blank", label: "Category blank" },
+        { role: "rack-object", index: selected.rackIndex, tokenId: selected.answerSymbol.id, label: selected.answerSymbol.label }
+      ],
+      minSelections: 2,
+      maxSelections: 2,
+      submitLabel: "Submit Move",
+      explanation: selected.answerSymbol.label + " completes the " + selected.pack.name.toLowerCase() + " row.",
+      wrongTapHint: "Choose the blank square first, then the rack object that belongs with that row.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "Only " + selected.answerSymbol.label + " completes the " + selected.pack.name + " row.",
+      relatedIndexes: selected.answerIndices,
+      objectRackSolutionCount: 1
+    };
   }
 
   function generateCardStraight(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
@@ -1866,9 +2055,157 @@
       addCandidate(candidates, "animal-food-web", "wrong-food-chain-position", positionToIndex(row, 3), token(positionToIndex(row, 3), animalById("rabbit"), "animal", ["token-animal"]));
       addCandidate(candidates, "animal-food-web", "predator-prey-mismatch", positionToIndex(row, 4), token(positionToIndex(row, 4), animalById("bee"), "animal", ["token-animal"]));
     }
-    return makeExpectedRound("animal-food-web", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, "That animal breaks the food chain.", "Use the taught chain: plant, insect, frog, snake, hawk.", function () {
-      return "The rows repeat an obvious food chain; the tapped animal is in the wrong habitat or chain position.";
+    return makeExpectedRound("animal-food-web", commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, function (selected) {
+      return labelForCell(selected.wrong) + " does not belong in this simple food chain.";
+    }, "Use the taught chain: Plant feeds insect; frog eats insect; snake eats frog; hawk hunts snake.", function (selected) {
+      return labelForCell(selected.wrong) + " is the only animal or plant outside the taught food-chain order.";
     }));
+  }
+
+  function exactSetRound(answerMode, board, expected, answerIndices, explanation, wrongTapHint, breakSignature, breakMode, evidence, evidenceDetail, count) {
+    return {
+      answerMode: answerMode,
+      board: board,
+      expected: expected,
+      answerIndex: answerIndices[0],
+      answerIndices: uniqueSorted(answerIndices),
+      minSelections: count || answerIndices.length,
+      maxSelections: count || answerIndices.length,
+      submitLabel: "Submit Move",
+      explanation: explanation,
+      wrongTapHint: wrongTapHint,
+      breakSignature: breakSignature,
+      breakMode: breakMode,
+      evidence: evidenceDetail || evidence,
+      relatedIndexes: uniqueSorted(answerIndices)
+    };
+  }
+
+  function buildThemeSwapCandidate(typeId, packAId, packBId, aOffset, bOffset) {
+    var packA = themePackById(packAId);
+    var packB = themePackById(packBId);
+    var packs = [packA, packB].concat(themePackSubset(["weather", "musical-instruments", "sports-balls", "forest-animals", "kitchen-tools"]).filter(function (pack) {
+      return pack.id !== packA.id && pack.id !== packB.id;
+    })).slice(0, GRID_SIZE);
+    var expected = [];
+    var board;
+    var aIndex = positionToIndex(0, aOffset);
+    var bIndex = positionToIndex(1, bOffset);
+
+    packs.forEach(function (pack, row) {
+      pack.items.slice(0, GRID_SIZE).forEach(function (symbol, col) {
+        expected[positionToIndex(row, col)] = objectCell(positionToIndex(row, col), symbol, pack, "object");
+      });
+    });
+    board = cloneBoard(expected);
+    board[aIndex] = objectCell(aIndex, packB.items[bOffset], packA, "object");
+    board[aIndex].expectedGlyph = expected[aIndex].glyph;
+    board[aIndex].expectedValue = expected[aIndex].value;
+    board[bIndex] = objectCell(bIndex, packA.items[aOffset], packB, "object");
+    board[bIndex].expectedGlyph = expected[bIndex].glyph;
+    board[bIndex].expectedValue = expected[bIndex].value;
+
+    return {
+      mode: packA.id + "-swap-" + packB.id,
+      board: board,
+      expected: expected,
+      answerIndices: uniqueSorted([aIndex, bIndex]),
+      evidence: labelForCell(board[aIndex]) + " belongs with " + packB.name + "; " + labelForCell(board[bIndex]) + " belongs with " + packA.name + ".",
+      breakSignature: makeBreakSignature(typeId, packA.id + "-swap-" + packB.id, uniqueSorted([aIndex, bIndex]).join("."), board[aIndex].glyph + board[bIndex].glyph)
+    };
+  }
+
+  function buildRecipeSwapCandidate(dishAId, dishBId, aIngredientOffset, bIngredientOffset) {
+    var dishes = dishRows();
+    var dishA = dishes.filter(function (dish) { return dish.id === dishAId; })[0];
+    var dishB = dishes.filter(function (dish) { return dish.id === dishBId; })[0];
+    var rows = [dishA, dishB].concat(dishes.filter(function (dish) {
+      return dish.id !== dishA.id && dish.id !== dishB.id;
+    })).slice(0, GRID_SIZE);
+    var expected = [];
+    var board;
+    var aIndex = positionToIndex(0, aIngredientOffset);
+    var bIndex = positionToIndex(1, bIngredientOffset);
+
+    rows.forEach(function (dish, row) {
+      expected[positionToIndex(row, 0)] = objectCell(positionToIndex(row, 0), SYMBOL_BY_ID(dish.dish), { id: dish.id, name: dish.name }, "dish");
+      dish.ingredients.slice(0, 4).forEach(function (symbolId, offset) {
+        expected[positionToIndex(row, offset + 1)] = objectCell(positionToIndex(row, offset + 1), SYMBOL_BY_ID(symbolId), { id: dish.id, name: dish.name }, "ingredient");
+      });
+    });
+    board = cloneBoard(expected);
+    board[aIndex] = objectCell(aIndex, SYMBOL_BY_ID(dishB.ingredients[bIngredientOffset - 1]), { id: dishA.id, name: dishA.name }, "ingredient");
+    board[aIndex].expectedGlyph = expected[aIndex].glyph;
+    board[aIndex].expectedValue = expected[aIndex].value;
+    board[bIndex] = objectCell(bIndex, SYMBOL_BY_ID(dishA.ingredients[aIngredientOffset - 1]), { id: dishB.id, name: dishB.name }, "ingredient");
+    board[bIndex].expectedGlyph = expected[bIndex].glyph;
+    board[bIndex].expectedValue = expected[bIndex].value;
+
+    return {
+      mode: dishA.id + "-swap-" + dishB.id,
+      board: board,
+      expected: expected,
+      answerIndices: uniqueSorted([aIndex, bIndex]),
+      evidence: labelForCell(board[aIndex]) + " belongs with " + dishB.name + "; " + labelForCell(board[bIndex]) + " belongs with " + dishA.name + ".",
+      breakSignature: makeBreakSignature("recipe-swap", dishA.id + "-swap-" + dishB.id, uniqueSorted([aIndex, bIndex]).join("."), board[aIndex].glyph + board[bIndex].glyph)
+    };
+  }
+
+  function buildObjectRackCandidate(packId, blankCol, distractorIds) {
+    var pack = themePackById(packId);
+    var supportPacks = themePackSubset(["salad-ingredients", "forest-animals", "musical-instruments", "weather", "sports-balls"]).filter(function (item) {
+      return item.id !== pack.id;
+    });
+    var board = emptyBoard();
+    var blankIndex = positionToIndex(0, blankCol);
+    var answerSymbol = pack.items[blankCol];
+    var rackIds = [answerSymbol.id].concat(distractorIds).slice(0, GRID_SIZE);
+    var rackIndex = positionToIndex(4, 0);
+
+    pack.items.slice(0, GRID_SIZE).forEach(function (symbol, col) {
+      board[positionToIndex(0, col)] = objectCell(positionToIndex(0, col), symbol, pack, "object");
+      board[positionToIndex(0, col)].selectable = false;
+    });
+    board[blankIndex] = glyphCell(blankIndex, "□", "object blank", "blank category square", ["token-object", "object-blank"], { selectionRole: "board-square", themeId: pack.id, tokenId: "blank" }, "", "blank");
+
+    supportPacks.slice(0, 3).forEach(function (rowPack, offset) {
+      rowPack.items.slice(0, GRID_SIZE).forEach(function (symbol, col) {
+        var index = positionToIndex(offset + 1, col);
+        board[index] = objectCell(index, symbol, rowPack, "object");
+        board[index].selectable = false;
+      });
+    });
+    rackIds.forEach(function (symbolId, offset) {
+      var index = positionToIndex(4, offset);
+      var symbol = SYMBOL_BY_ID(symbolId);
+      board[index] = objectCell(index, symbol, pack, "rack-object");
+      board[index].value = Object.assign({}, board[index].value, { selectionRole: "rack-object", tokenId: symbol.id, rack: true });
+      board[index].classNames.push("rack-tile");
+      if (symbol.id === answerSymbol.id) {
+        rackIndex = index;
+      }
+    });
+    return {
+      mode: "rack-complete-" + pack.id + "-" + blankCol,
+      pack: pack,
+      board: board,
+      blankIndex: blankIndex,
+      rackIndex: rackIndex,
+      answerSymbol: answerSymbol,
+      answerIndices: uniqueSorted([blankIndex, rackIndex]),
+      breakSignature: makeBreakSignature("object-rack-complete", "rack-complete-" + pack.id, uniqueSorted([blankIndex, rackIndex]).join("."), answerSymbol.id)
+    };
+  }
+
+  function dishRows() {
+    return [
+      { id: "taco", name: "Taco", dish: "taco", ingredients: ["corn", "meat", "lettuce", "cheese"], imposters: ["sushi", "wrench"] },
+      { id: "pizza", name: "Pizza", dish: "pizza", ingredients: ["bread", "tomato", "cheese", "mushroom"], imposters: ["basketball", "banana"] },
+      { id: "salad", name: "Salad", dish: "salad", ingredients: ["lettuce", "tomato", "cucumber", "carrot"], imposters: ["hammer", "sushi"] },
+      { id: "sushi", name: "Sushi", dish: "sushi", ingredients: ["rice", "food-fish", "cucumber", "lemon"], imposters: ["football", "cheese"] },
+      { id: "burger", name: "Burger", dish: "burger", ingredients: ["bread", "meat", "cheese", "lettuce"], imposters: ["flute", "rocket"] },
+      { id: "breakfast", name: "Breakfast", dish: "egg", ingredients: ["bread", "egg", "banana", "coffee"], imposters: ["screwdriver", "snake"] }
+    ];
   }
 
   function commonConfig(random, expectedBoard, candidates, avoidBreakSignatures, explanation, wrongTapHint, evidence, relatedIndexes) {
@@ -1897,6 +2234,17 @@
       expectedGlyph: card.glyph,
       expectedValue: { rank: rank, suit: card.suit, suitIndex: suitIndex }
     });
+  }
+
+  function objectCell(index, symbol, pack, role) {
+    var label = symbol.label || symbol.ariaLabel || symbol.id;
+    return glyphCell(index, symbol.glyph, "object " + (role || "symbol"), label, ["token-object", "symbol-token", "symbol-token--emoji"], {
+      symbolId: symbol.id,
+      label: label,
+      themeId: pack && pack.id,
+      themeName: pack && pack.name,
+      role: role || "object"
+    }, "", symbol.shortLabel || label);
   }
 
   function chessPieceCell(index, pieceTag, number) {
@@ -2000,7 +2348,7 @@
   }
 
   function token(index, symbol, kind, classes) {
-    return glyphCell(index, symbol.glyph, kind, symbol.ariaLabel || symbol.label, classes || [], symbol.id, symbol.cornerLabel || "");
+    return glyphCell(index, symbol.glyph, kind, symbol.ariaLabel || symbol.label, classes || [], { symbolId: symbol.id, label: symbol.label || symbol.ariaLabel || symbol.id }, symbol.cornerLabel || "", symbol.shortLabel || "");
   }
 
   function glyphCell(index, glyph, kind, ariaLabel, classes, value, cornerLabel, subLabel) {
@@ -2332,6 +2680,34 @@
     };
   }
 
+  function validateObjectSwap(round) {
+    var expected = uniqueSorted(round.answerIndices || []);
+    var mismatches = getMismatches(round);
+
+    return {
+      valid: expected.length === 2 && sameSet(mismatches, expected) && boardIsUsable(round),
+      mismatches: mismatches,
+      answers: expected
+    };
+  }
+
+  function validateObjectRackComplete(round) {
+    var result = validateTwoStep(round);
+    var steps = round.answerSteps || [];
+    var hasBlankStep = steps.some(function (step) {
+      return step.role === "board-square";
+    });
+    var hasRackStep = steps.some(function (step) {
+      return step.role === "rack-object";
+    });
+
+    return {
+      valid: result.valid && hasBlankStep && hasRackStep && round.objectRackSolutionCount === 1 && boardIsUsable(round),
+      mismatches: result.mismatches,
+      answers: result.answers
+    };
+  }
+
   function getMismatches(round) {
     var mismatches = [];
     round.board.forEach(function (cell, index) {
@@ -2559,6 +2935,73 @@
     return ["A♠", "2♥", "3♦", "4♣", "7♥", "9♠", "J♣", "Q♦"];
   }
 
+  function pairSymbols(leftId, rightId) {
+    var left = SYMBOL_BY_ID(leftId);
+    var right = SYMBOL_BY_ID(rightId);
+
+    return {
+      a: left.glyph,
+      b: right.glyph,
+      aLabel: left.label || left.ariaLabel || left.id,
+      bLabel: right.label || right.ariaLabel || right.id,
+      aSymbol: left,
+      bSymbol: right
+    };
+  }
+
+  function flattenPairSymbols(pairs) {
+    var items = [];
+
+    pairs.forEach(function (pair) {
+      items.push(pair.aSymbol, pair.bSymbol);
+    });
+    return items;
+  }
+
+  function objectPuzzleSymbols() {
+    return uniqueSymbols(themePackSubset([
+      "kitchen-tools",
+      "workshop-tools",
+      "forest-animals",
+      "musical-instruments",
+      "weather",
+      "sports-balls"
+    ]).reduce(function (items, pack) {
+      return items.concat(pack.items.slice(0, 3));
+    }, [])).slice(0, 12);
+  }
+
+  function dishPuzzleSymbols() {
+    var ids = [];
+
+    dishRows().forEach(function (dish) {
+      ids.push(dish.dish);
+      ids = ids.concat(dish.ingredients.slice(0, 2));
+    });
+    return uniqueSymbols(ids.map(SYMBOL_BY_ID)).slice(0, 12);
+  }
+
+  function themePackById(id) {
+    return THEME_PACKS.filter(function (pack) {
+      return pack.id === id;
+    })[0] || THEME_PACKS[0];
+  }
+
+  function themePackSubset(ids) {
+    return ids.map(themePackById).filter(Boolean);
+  }
+
+  function uniqueSymbols(symbols) {
+    var seen = {};
+    return symbols.filter(function (symbol) {
+      if (!symbol || seen[symbol.id]) {
+        return false;
+      }
+      seen[symbol.id] = true;
+      return true;
+    });
+  }
+
   function example(columns, caption, cells) {
     return { columns: columns, caption: caption, cells: cells };
   }
@@ -2573,6 +3016,37 @@
 
   function symbolLabel(symbol) {
     return typeof symbol === "string" ? symbol : symbol.glyph;
+  }
+
+  function symbolChipData(symbol) {
+    if (typeof symbol === "string") {
+      return {
+        glyph: symbol,
+        label: symbol,
+        ariaLabel: symbol,
+        displayKind: "text"
+      };
+    }
+    return {
+      id: symbol.id,
+      glyph: symbol.glyph,
+      label: symbol.label || symbol.ariaLabel || symbol.glyph,
+      shortLabel: symbol.shortLabel || symbol.label || symbol.glyph,
+      ariaLabel: symbol.ariaLabel || symbol.label || symbol.glyph,
+      displayKind: symbol.displayKind || "text",
+      category: symbol.category,
+      theme: symbol.theme
+    };
+  }
+
+  function labelForCell(cell) {
+    if (!cell) {
+      return "that object";
+    }
+    if (cell.value && cell.value.label) {
+      return cell.value.label;
+    }
+    return cell.ariaLabel || cell.label || cell.glyph || "that object";
   }
 
   function hasTag(tag) {
@@ -2779,6 +3253,8 @@
     validateMazeExit: validateMazeExit,
     validateCircuitSwitchPair: validateCircuitSwitchPair,
     validateMazeBridgeRepair: validateMazeBridgeRepair,
+    validateObjectSwap: validateObjectSwap,
+    validateObjectRackComplete: validateObjectRackComplete,
     validateChessAttack: validateChessAttack,
     validateGoCaptureMax: validateGoCaptureMax,
     validateGoLiberties: validateGoLiberties,

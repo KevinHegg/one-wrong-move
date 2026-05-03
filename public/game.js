@@ -439,9 +439,19 @@
   function renderSymbolChips(symbols) {
     symbolText.innerHTML = "";
     symbols.forEach(function (symbol) {
+      var data = normalizeSymbolDisplay(symbol);
       var chip = document.createElement("span");
+      var glyph = document.createElement("span");
+      var label = document.createElement("span");
+
       chip.className = "symbol-chip";
-      chip.textContent = typeof symbol === "string" ? symbol : symbol.glyph || symbol.label || "";
+      chip.setAttribute("aria-label", data.ariaLabel);
+      glyph.className = "symbol-chip__glyph";
+      glyph.textContent = data.glyph;
+      label.className = "symbol-chip__label";
+      label.textContent = data.label;
+      chip.appendChild(glyph);
+      chip.appendChild(label);
       symbolText.appendChild(chip);
     });
   }
@@ -502,10 +512,19 @@
   }
 
   function renderCellContents(cell, cellData) {
+    var isSymbolToken = (cellData.classNames || []).indexOf("symbol-token") !== -1 || (cellData.kind || "").indexOf("object") !== -1;
     var main = document.createElement("span");
 
-    main.className = "cell-main";
-    main.textContent = cellData.glyph || cellData.label || "";
+    main.className = isSymbolToken ? "cell-main symbol-token symbol-token--emoji" : "cell-main";
+    if (isSymbolToken) {
+      var glyph = document.createElement("span");
+
+      glyph.className = "symbol-token__glyph";
+      glyph.textContent = cellData.glyph || cellData.label || "";
+      main.appendChild(glyph);
+    } else {
+      main.textContent = cellData.glyph || cellData.label || "";
+    }
     cell.appendChild(main);
 
     if (cellData.cornerLabel) {
@@ -565,6 +584,21 @@
     var selected = options && options.selectedIndices && options.selectedIndices.indexOf((row - 1) * Puzzles.GRID_SIZE + (column - 1)) !== -1;
 
     return "Row " + row + ", column " + column + ", " + visible + (selected ? ", selected" : "");
+  }
+
+  function normalizeSymbolDisplay(symbol) {
+    if (typeof symbol === "string") {
+      return {
+        glyph: symbol,
+        label: symbol,
+        ariaLabel: symbol
+      };
+    }
+    return {
+      glyph: symbol.glyph || symbol.label || "",
+      label: symbol.shortLabel || symbol.label || symbol.ariaLabel || symbol.glyph || "",
+      ariaLabel: symbol.ariaLabel || symbol.label || symbol.glyph || ""
+    };
   }
 
   function updateHeader(level) {

@@ -18,6 +18,8 @@ Every active board must be self-contained. The player should be able to infer th
 
 Symbols are rule carriers, not decoration. A card is useful because rank and suit can progress. A chess piece is useful because it has legal attacks. A Go stone is useful because liberties use orthogonal adjacency. A domino is useful because halves match. Arbitrary glyphs still have a place, but they should not dominate the daily experience.
 
+The same principle applies to object puzzles. Internal IDs can be short, but player-facing tiles should show the thing itself: plant, insect, frog, snake, hawk, bee, flower, key, lock, tool, ingredient, dish. The earlier Animal Food Web briefing exposed internal abbreviations such as `PL`, `IN`, and `FR`; that made the puzzle feel coded instead of visual. Those codes are now banned from active player-facing displays.
+
 ## Why Survival Replaced Three Rounds
 
 The old three-round daily format was clean, but it made the title less meaningful. The player could make mistakes, absorb a time penalty, and still finish. Survival Run makes the product promise literal: one wrong committed move ends the run.
@@ -116,6 +118,11 @@ The survival selector uses deterministic randomness from the date and session at
 | Rotation Logic | Compass | identifyOne | 2 | Rotation sequence | Directions rotate by a fixed amount. |
 | Latin Trap | Symbol Grammar | identifyOne | 2 | Row-column constraints | Rows and columns each need one of every symbol. |
 | Animal Food Web | Ecology | identifyOne | 2 | Relationship ordering | Rows show an obvious food chain. |
+| Object Row Imposter | Objects | identifyOne | 1 | Category grouping | One object does not belong in its category row. |
+| Category Swap | Objects | multiSelect | 2 | Category repair | Two objects were swapped between two theme rows. |
+| Dish Ingredient Imposter | Food | identifyOne | 1 | Recipe grouping | One ingredient does not belong with its dish. |
+| Recipe Swap | Food | multiSelect | 2 | Recipe repair | Two ingredients were swapped between dishes. |
+| Object Rack Complete | Objects | twoStep | 2 | Category completion | Choose a blank and a rack object that completes the row. |
 | Compass Rose | Compass | identifyOne | 2 | Rotation sequence | Compass bearings rotate by a fixed step. |
 | Chess Attack | Chess | identifyOne | 3 | Attack sequence | Each numbered piece must legally attack the next piece. |
 | Poker Hand Trap | Cards | identifyOne | 3 | Hand classification | Each row names a tiny poker pattern. |
@@ -175,6 +182,16 @@ Go rendering now uses a board-grid treatment rather than generic tiles. Black st
 
 ## New Puzzle Types
 
+**Object Row Imposter** uses theme rows such as kitchen tools, music instruments, weather, sports balls, forest animals, and workshop tools. Four objects establish the row's theme, and one object breaks it. This is an approachable object puzzle, but Ladder selection avoids stacking multiple object-row puzzles back to back.
+
+**Category Swap** is a multi-select object puzzle. Two objects have traded rows, such as a tomato in tools and a wrench in ingredients. The player must select exactly both swapped objects before submitting.
+
+**Dish Ingredient Imposter** shows a dish in the first cell and common ingredients beside it. One ingredient does not belong. The dish set is deliberately familiar and curated to avoid subjective recipe trivia.
+
+**Recipe Swap** asks the player to select two ingredients that were swapped between two dish rows. The explanation names where each selected ingredient belongs.
+
+**Object Rack Complete** is a two-step category puzzle. The player chooses a blank in a theme row and then chooses the object from a separate rack that completes that row.
+
 **Yahtzee Fix** asks the player to repair a visible five-dice category by selecting exactly two wrong dice. It supports categories such as full house, four of a kind, and large straight while keeping the dice values small and readable.
 
 **Maze Exit** turns the 5x5 board into a tiny route map. The player traces from `S` through open paths and chooses the one reachable exit.
@@ -233,7 +250,8 @@ On laptop and desktop screens, the game is constrained to a centered smartphone-
 
 - Puzzle cells are native buttons during active play.
 - ARIA labels describe row, column, and symbol identity.
-- Compound symbols such as cards, dominoes, numbered chess pieces, Go stones, and logic gates have readable labels.
+- Compound symbols such as cards, dominoes, numbered chess pieces, Go stones, logic gates, animal icons, dish icons, and object tiles have readable labels.
+- Symbol chips include a glyph and readable label so emoji rendering differences do not make briefings cryptic.
 - Multi-select cells expose selected state with `aria-pressed`.
 - Answers never rely on color alone.
 - Feedback uses text, border treatment, symbols, and explanations.

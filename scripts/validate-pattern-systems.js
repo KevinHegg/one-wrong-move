@@ -24,7 +24,13 @@ const REQUIRED_ACTIVE_IDS = new Set([
   "maze-exit",
   "maze-key-exit",
   "scrabble-cross",
-  "tetris-fit"
+  "tetris-fit",
+  "object-row-imposter",
+  "category-swap",
+  "dish-ingredient-imposter",
+  "recipe-swap",
+  "object-rack-complete",
+  "animal-food-web"
 ]);
 
 function assert(condition, message) {
