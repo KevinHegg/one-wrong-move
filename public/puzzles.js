@@ -33,6 +33,7 @@
   var CARDS = S.cards;
   var CHESS = S.chess;
   var GO = S.go;
+  var OTHELLO = S.othello || [];
   var LOGIC = S.logic;
   var DICE = S.dice;
   var SUDOKU = S.sudoku || [];
@@ -43,6 +44,16 @@
   var KITCHEN = S.kitchen;
   var THEME_PACKS = Symbols.themePacks || [];
   var SYMBOL_BY_ID = Symbols.symbolById || function (id) { return { id: id, glyph: id, label: id, ariaLabel: id }; };
+  var OTHELLO_DIRECTIONS = [
+    { row: -1, col: -1, name: "up-left" },
+    { row: -1, col: 0, name: "up" },
+    { row: -1, col: 1, name: "up-right" },
+    { row: 0, col: -1, name: "left" },
+    { row: 0, col: 1, name: "right" },
+    { row: 1, col: -1, name: "down-left" },
+    { row: 1, col: 0, name: "down" },
+    { row: 1, col: 1, name: "down-right" }
+  ];
 
   var PAIR_SYMBOLS = [
     pairSymbols("moon", "sun"),
@@ -377,6 +388,7 @@
       difficulty: 4,
       answerMode: ANSWER_MODES.chooseOne,
       cognitiveSkill: "capture reading",
+      isBoardGameCapturePuzzle: true,
       symbols: GO,
       briefing: "Black to play. Tap the empty intersection that captures the most white stones.",
       example: example(5, "Fill the last liberty of a white group to capture it.", ["●", "○", "·", "○", "●"]),
@@ -390,11 +402,42 @@
       difficulty: 4,
       answerMode: ANSWER_MODES.multiSelect,
       cognitiveSkill: "orthogonal adjacency",
+      isBoardGameCapturePuzzle: true,
       symbols: GO,
       briefing: "Tap every liberty of the marked group, then submit.",
       example: example(5, "Only empty orthogonal neighbors are liberties; diagonals do not count.", ["·", "+", "●", "+", "·"]),
       generate: generateGoLiberties,
       validator: validateGoLiberties
+    }),
+    type({
+      id: "othello-best-flip",
+      name: "Othello Best Flip",
+      sourceWorld: "Othello",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.chooseOne,
+      cognitiveSkill: "sandwich capture counting",
+      isBoardGameCapturePuzzle: true,
+      minSurvivalLevel: 4,
+      symbols: othelloSymbols(),
+      briefing: "Black to move. Tap the legal move that flips the most white discs.",
+      example: example(5, "A legal move traps white discs in a straight line between the new black disc and another black disc.", ["●", "○", "○", "✦", "●"]),
+      generate: generateOthelloBestFlip,
+      validator: validateOthelloBestFlip
+    }),
+    type({
+      id: "othello-mark-all-flips",
+      name: "Othello Mark All Flips",
+      sourceWorld: "Othello",
+      difficulty: 3,
+      answerMode: ANSWER_MODES.multiSelect,
+      cognitiveSkill: "directional capture tracing",
+      isBoardGameCapturePuzzle: true,
+      minSurvivalLevel: 4,
+      symbols: othelloSymbols(),
+      briefing: "Black plays on the marked square. Select every white disc that would flip, then submit.",
+      example: example(5, "Trace every straight line from the marked move. White discs flip only if the line ends at black.", ["✦", "○", "○", "●", "✓"]),
+      generate: generateOthelloMarkAllFlips,
+      validator: validateOthelloMarkAllFlips
     }),
     type({
       id: "yahtzee-fix",
@@ -416,6 +459,8 @@
       difficulty: 2,
       answerMode: ANSWER_MODES.chooseOne,
       cognitiveSkill: "route tracing",
+      retired: true,
+      retiredReason: "Retired from Ladder and Free Play: the reachable exit is too obvious and low-depth for normal play.",
       symbols: ["S", "A", "B", "C", "·", "■"],
       briefing: "Start at S. Follow open paths. Choose the exit the route can actually reach.",
       example: example(5, "Walls block movement; only orthogonal open paths connect.", ["S", "·", "■", "A", "C"]),
@@ -593,6 +638,7 @@
       isAbstractGlyphPuzzle: Boolean(config.isAbstractGlyphPuzzle),
       isMovementPuzzle: Boolean(config.isMovementPuzzle),
       isNumberGridPuzzle: Boolean(config.isNumberGridPuzzle),
+      isBoardGameCapturePuzzle: Boolean(config.isBoardGameCapturePuzzle),
       minSurvivalLevel: config.minSurvivalLevel || 1,
       retired: Boolean(config.retired),
       retiredReason: config.retiredReason || "",
@@ -706,6 +752,9 @@
           return !(candidate.sourceWorld === "Go" && previous.sourceWorld === "Go");
         });
         candidates = prefer(candidates, function (candidate) {
+          return !(candidate.isBoardGameCapturePuzzle && previous.isBoardGameCapturePuzzle);
+        });
+        candidates = prefer(candidates, function (candidate) {
           return !(candidate.isMovementPuzzle && previous.isMovementPuzzle);
         });
         candidates = prefer(candidates, function (candidate) {
@@ -744,7 +793,7 @@
     });
     var selected = [];
     var preferredFirst = prefer(activeTypes, function (candidate) {
-      return ["object-row-imposter", "dish-ingredient-imposter", "domino-chain", "dice-sum", "sudoku-conflict", "suit-cycle", "pair-pact", "maze-exit"].indexOf(candidate.id) !== -1;
+      return ["object-row-imposter", "dish-ingredient-imposter", "domino-chain", "dice-sum", "sudoku-conflict", "suit-cycle", "pair-pact"].indexOf(candidate.id) !== -1;
     });
     selected.push(shuffle(preferredFirst, random)[0]);
 
@@ -756,6 +805,11 @@
         return !candidate.isNumberGridPuzzle;
       });
     }
+    if (selected.some(function (chosen) { return chosen.isBoardGameCapturePuzzle; })) {
+      multiOrWordCandidates = prefer(multiOrWordCandidates, function (candidate) {
+        return !candidate.isBoardGameCapturePuzzle;
+      });
+    }
     var multiOrWord = prefer(multiOrWordCandidates, function (candidate) {
       return candidate.id === "mini-sudoku-swap" || candidate.answerMode === ANSWER_MODES.multiSelect || candidate.answerMode === ANSWER_MODES.twoStep || candidate.sourceWorld === "Crossword" || candidate.sourceWorld === "Words";
     });
@@ -765,7 +819,8 @@
       return selected.every(function (chosen) {
         return chosen.id !== candidate.id && chosen.sourceWorld !== candidate.sourceWorld;
       }) && selected.every(function (chosen) {
-        return !(candidate.isNumberGridPuzzle && chosen.isNumberGridPuzzle);
+        return !(candidate.isNumberGridPuzzle && chosen.isNumberGridPuzzle) &&
+          !(candidate.isBoardGameCapturePuzzle && chosen.isBoardGameCapturePuzzle);
       });
     });
     if (remaining.length === 0) {
@@ -777,6 +832,11 @@
       if (selected.some(function (chosen) { return chosen.isNumberGridPuzzle; })) {
         remaining = prefer(remaining, function (candidate) {
           return !candidate.isNumberGridPuzzle;
+        });
+      }
+      if (selected.some(function (chosen) { return chosen.isBoardGameCapturePuzzle; })) {
+        remaining = prefer(remaining, function (candidate) {
+          return !candidate.isBoardGameCapturePuzzle;
         });
       }
     }
@@ -805,12 +865,12 @@
       }
       if (roundIndex === 1) {
         candidates = prefer(candidates, function (candidate) {
-          return ["category-swap", "recipe-swap", "object-rack-complete", "mini-sudoku-swap", "card-straight", "logic-gate-row", "mirror-trap", "chess-attack"].indexOf(candidate.id) !== -1;
+          return ["category-swap", "recipe-swap", "object-rack-complete", "mini-sudoku-swap", "othello-mark-all-flips", "othello-best-flip", "card-straight", "logic-gate-row", "mirror-trap", "chess-attack"].indexOf(candidate.id) !== -1;
         });
       }
       if (roundIndex === 2) {
         candidates = prefer(candidates, function (candidate) {
-          return ["go-capture-max", "go-liberties", "minesweeper-forced-mine", "minesweeper-mark-all", "poker-hand-trap", "train-route", "chess-attack"].indexOf(candidate.id) !== -1;
+          return ["go-capture-max", "go-liberties", "othello-best-flip", "othello-mark-all-flips", "minesweeper-forced-mine", "minesweeper-mark-all", "poker-hand-trap", "train-route", "chess-attack"].indexOf(candidate.id) !== -1;
         });
       }
 
@@ -827,6 +887,11 @@
       candidates = prefer(candidates, function (candidate) {
         return candidate.sourceWorld !== "Go" || selected.every(function (chosen) {
           return chosen.sourceWorld !== "Go";
+        });
+      });
+      candidates = prefer(candidates, function (candidate) {
+        return !candidate.isBoardGameCapturePuzzle || selected.every(function (chosen) {
+          return !chosen.isBoardGameCapturePuzzle;
         });
       });
       candidates = prefer(candidates, function (candidate) {
@@ -872,6 +937,7 @@
     normalized.answerMode = answerMode;
     normalized.cognitiveSkill = selectedType.cognitiveSkill;
     normalized.isNumberGridPuzzle = selectedType.isNumberGridPuzzle;
+    normalized.isBoardGameCapturePuzzle = selectedType.isBoardGameCapturePuzzle;
     normalized.columns = round.columns || round.gridSize || GRID_SIZE;
     normalized.roundNumber = roundNumber;
     normalized.symbols = selectedType.symbols.slice();
@@ -1820,6 +1886,126 @@
       breakMode: selected.mode,
       evidence: "The marked group touches exactly these empty orthogonal points: " + selected.answerIndices.map(displayPoint).join(", ") + ".",
       relatedIndexes: selected.answerIndices
+    };
+  }
+
+  function generateOthelloBestFlip(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var scenarios = shuffle(othelloBestFlipScenarios(), random);
+    var selected = selectCandidate(scenarios, avoidBreakSignatures || []);
+    return buildOthelloBestFlipRound(selected);
+  }
+
+  function othelloBestFlipScenarios() {
+    var transforms = ["identity", "rotate90", "rotate180", "mirrorH", "mirrorV", "transpose"];
+    var baseBlack = [0, 2, 4, 10, 14, 20, 21, 22, 23, 24];
+    var baseWhite = [6, 7, 8, 11, 13, 16, 17, 18];
+    var baseAnswer = 12;
+
+    return transforms.map(function (transform) {
+      var black = baseBlack.map(function (index) { return transformIndex(index, transform); });
+      var white = baseWhite.map(function (index) { return transformIndex(index, transform); });
+      var answerIndex = transformIndex(baseAnswer, transform);
+      var board = othelloBoard(black, white, null, "moves");
+      var best = uniqueBestOthelloMove(board);
+
+      return {
+        mode: "best-center-web-" + transform,
+        board: board,
+        answerIndex: best ? best.index : answerIndex,
+        flipped: best ? best.flips : [],
+        score: best ? best.score : 0,
+        directions: best ? best.directions : [],
+        legalMoves: othelloMoveScores(board),
+        breakSignature: makeBreakSignature("othello-best-flip", "best-center-web-" + transform, answerIndex, "max-flips")
+      };
+    }).filter(function (scenario) {
+      var bestMoves = othelloBestMoves(scenario.board);
+      return bestMoves.length === 1 && bestMoves[0].index === scenario.answerIndex && scenario.score >= 2;
+    });
+  }
+
+  function buildOthelloBestFlipRound(selected) {
+    var legalMoves = selected.legalMoves.filter(function (score) {
+      return score.score > 0;
+    });
+    return {
+      answerMode: ANSWER_MODES.chooseOne,
+      board: selected.board,
+      answerIndex: selected.answerIndex,
+      answerIndices: [selected.answerIndex],
+      explanation: "That legal move flips " + selected.score + " white discs, more than any other move.",
+      wrongTapHint: "A legal Othello move traps one or more white discs in a straight line between the new black disc and an existing black disc.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "Playing at " + displayPoint(selected.answerIndex) + " flips " + selected.score + " discs along " + selected.directions.join(", ") + ".",
+      relatedIndexes: selected.flipped,
+      choiceScores: legalMoves,
+      targeting: {
+        targetType: TARGET_TYPES.cell,
+        clickableIndices: legalMoves.map(function (move) { return move.index; }),
+        answerIndices: [selected.answerIndex],
+        targetHint: "Only legal Othello moves are clickable. Choose the move that flips the most white discs."
+      }
+    };
+  }
+
+  function generateOthelloMarkAllFlips(seed, roundNumber, sessionAttempt, avoidBreakSignatures) {
+    var random = createRandom(seed);
+    var scenarios = shuffle(othelloMarkAllFlipScenarios(), random);
+    var selected = selectCandidate(scenarios, avoidBreakSignatures || []);
+    return buildOthelloMarkAllFlipsRound(selected);
+  }
+
+  function othelloMarkAllFlipScenarios() {
+    var transforms = ["identity", "rotate90", "rotate180", "mirrorH", "mirrorV", "transpose"];
+    var baseBlack = [0, 4, 5, 9, 15, 17, 20, 24];
+    var baseWhite = [2, 3, 6, 8, 11, 12, 13, 18, 22];
+    var baseMove = 7;
+
+    return transforms.map(function (transform) {
+      var black = baseBlack.map(function (index) { return transformIndex(index, transform); });
+      var white = baseWhite.map(function (index) { return transformIndex(index, transform); });
+      var moveIndex = transformIndex(baseMove, transform);
+      var board = othelloBoard(black, white, moveIndex, "white");
+      var flips = othelloFlipsForMove(board, moveIndex, "black");
+      return {
+        mode: "marked-flips-" + transform,
+        board: board,
+        moveIndex: moveIndex,
+        answerIndices: uniqueSorted(flips),
+        whiteIndices: uniqueSorted(white),
+        directions: othelloDirectionsForMove(board, moveIndex, "black"),
+        breakSignature: makeBreakSignature("othello-mark-all-flips", "marked-flips-" + transform, uniqueSorted(flips).join("."), "set")
+      };
+    }).filter(function (scenario) {
+      return scenario.answerIndices.length >= 2;
+    });
+  }
+
+  function buildOthelloMarkAllFlipsRound(selected) {
+    return {
+      answerMode: ANSWER_MODES.multiSelect,
+      board: selected.board,
+      answerIndex: selected.answerIndices[0],
+      answerIndices: selected.answerIndices,
+      minSelections: selected.answerIndices.length,
+      maxSelections: selected.answerIndices.length,
+      submitLabel: "Submit Flips",
+      clearLabel: "Clear discs",
+      answerStyleLabel: "Select every white disc that flips, then Submit Flips",
+      explanation: "Those " + selected.answerIndices.length + " white discs are trapped by the marked move and would flip to black.",
+      wrongTapHint: "Trace straight lines from the marked square. A white disc flips only when the line ends at a black disc.",
+      breakSignature: selected.breakSignature,
+      breakMode: selected.mode,
+      evidence: "Black plays at " + displayPoint(selected.moveIndex) + "; the flipping lines are " + selected.directions.join(", ") + ".",
+      relatedIndexes: [selected.moveIndex],
+      targeting: {
+        targetType: TARGET_TYPES.multiSelect,
+        clickableIndices: selected.whiteIndices,
+        answerIndices: selected.answerIndices,
+        targetHint: "Select every white disc that would flip from the marked move, then Submit Flips."
+      }
     };
   }
 
@@ -2944,6 +3130,47 @@
     });
   }
 
+  function othelloBoard(blackIndexes, whiteIndexes, markedMoveIndex, selectableMode) {
+    var board = emptyBoard();
+    var mode = selectableMode || "moves";
+
+    forEachIndex(function (index) {
+      board[index] = othelloCell(index, "empty", markedMoveIndex === index, mode);
+    });
+    blackIndexes.forEach(function (index) {
+      board[index] = othelloCell(index, "black", false, mode);
+    });
+    whiteIndexes.forEach(function (index) {
+      board[index] = othelloCell(index, "white", false, mode);
+    });
+    if (typeof markedMoveIndex === "number") {
+      board[markedMoveIndex] = othelloCell(markedMoveIndex, "empty", true, mode);
+    }
+    return board;
+  }
+
+  function othelloCell(index, color, markedMove, selectableMode) {
+    var glyph = markedMove ? "✦" : color === "black" ? "●" : color === "white" ? "○" : "·";
+    var classes = ["token-othello", "othello-" + color];
+    var selectable = selectableMode === "white" ? color === "white" : color === "empty" && !markedMove;
+
+    if (markedMove) {
+      classes.push("othello-move");
+    }
+    return hydrateCell(index, {
+      kind: "othello " + (markedMove ? "move" : color),
+      glyph: glyph,
+      label: glyph,
+      value: { othello: color, markedMove: Boolean(markedMove) },
+      classNames: classes,
+      ariaLabel: markedMove ? "marked Othello move square" : "Othello " + color + (color === "empty" ? " candidate move" : " disc"),
+      selectable: selectable,
+      interactive: selectable,
+      expectedGlyph: glyph,
+      expectedValue: { othello: color, markedMove: Boolean(markedMove) }
+    });
+  }
+
   function logicCell(index, glyph) {
     return glyphCell(index, glyph, "logic", glyph + " logic token", ["token-logic"], glyph);
   }
@@ -3292,6 +3519,41 @@
     };
   }
 
+  function validateOthelloBestFlip(round) {
+    var bestMoves = othelloBestMoves(round.board);
+    var legalMoves = othelloMoveScores(round.board).filter(function (move) {
+      return move.score > 0;
+    }).map(function (move) { return move.index; });
+    var clickable = round.targeting && round.targeting.clickableIndices ? round.targeting.clickableIndices : legalMoves;
+
+    return {
+      valid: bestMoves.length === 1 &&
+        bestMoves[0].index === round.answerIndex &&
+        bestMoves[0].score >= 2 &&
+        sameSet(clickable, legalMoves) &&
+        boardIsUsable(round),
+      mismatches: bestMoves.map(function (move) { return move.index; }),
+      answers: bestMoves.map(function (move) { return move.index; })
+    };
+  }
+
+  function validateOthelloMarkAllFlips(round) {
+    var marked = round.board.filter(function (cell) {
+      return cell.value && cell.value.markedMove;
+    });
+    var moveIndex = marked.length ? marked[0].index : null;
+    var flips = typeof moveIndex === "number" ? othelloFlipsForMove(round.board, moveIndex, "black") : [];
+
+    return {
+      valid: typeof moveIndex === "number" &&
+        flips.length >= 2 &&
+        sameSet(flips, round.answerIndices || []) &&
+        boardIsUsable(round),
+      mismatches: flips,
+      answers: flips
+    };
+  }
+
   function validateMazeExit(round) {
     var reachable = reachableMazeIndexes(round.board);
     var answers = round.board.filter(function (cell) {
@@ -3618,6 +3880,81 @@
     return cell && cell.value && cell.value.go === "empty";
   }
 
+  function othelloMoveScores(board) {
+    return board.map(function (cell, index) {
+      var flips = othelloFlipsForMove(board, index, "black");
+      return {
+        index: index,
+        score: flips.length,
+        flips: flips,
+        directions: othelloDirectionsForMove(board, index, "black")
+      };
+    });
+  }
+
+  function uniqueBestOthelloMove(board) {
+    var bestMoves = othelloBestMoves(board);
+    return bestMoves.length === 1 ? bestMoves[0] : null;
+  }
+
+  function othelloBestMoves(board) {
+    var legal = othelloMoveScores(board).filter(function (move) {
+      return move.score > 0;
+    });
+    var bestScore = legal.reduce(function (best, move) {
+      return Math.max(best, move.score);
+    }, 0);
+    return legal.filter(function (move) {
+      return move.score === bestScore;
+    });
+  }
+
+  function othelloFlipsForMove(board, moveIndex, color) {
+    var cell = board[moveIndex];
+    if (!cell || !cell.value || cell.value.othello !== "empty") {
+      return [];
+    }
+    return uniqueSorted(OTHELLO_DIRECTIONS.reduce(function (flips, direction) {
+      return flips.concat(othelloLineFlips(board, moveIndex, direction, color));
+    }, []));
+  }
+
+  function othelloDirectionsForMove(board, moveIndex, color) {
+    return OTHELLO_DIRECTIONS.map(function (direction) {
+      return {
+        name: direction.name,
+        flips: othelloLineFlips(board, moveIndex, direction, color)
+      };
+    }).filter(function (item) {
+      return item.flips.length > 0;
+    }).map(function (item) {
+      return item.name + " (" + item.flips.length + ")";
+    });
+  }
+
+  function othelloLineFlips(board, moveIndex, direction, color) {
+    var opponent = color === "black" ? "white" : "black";
+    var point = indexToPoint(moveIndex);
+    var row = point.row + direction.row;
+    var col = point.col + direction.col;
+    var collected = [];
+
+    while (isInside({ row: row, col: col })) {
+      var index = positionToIndex(row, col);
+      var value = board[index] && board[index].value && board[index].value.othello;
+      if (value === opponent) {
+        collected.push(index);
+      } else if (value === color) {
+        return collected.length ? collected : [];
+      } else {
+        return [];
+      }
+      row += direction.row;
+      col += direction.col;
+    }
+    return [];
+  }
+
   function neighbors(index) {
     var point = indexToPoint(index);
     return [
@@ -3664,6 +4001,10 @@
     return MINESWEEPER.length ? MINESWEEPER.filter(function (symbol) {
       return ["mine-hidden", "mine-flag", "mine-bomb", "mine-clue-1", "mine-clue-2", "mine-clue-3"].indexOf(symbol.id) !== -1;
     }) : ["□", "⚑", "💣", "1", "2", "3"];
+  }
+
+  function othelloSymbols() {
+    return OTHELLO.length ? OTHELLO : ["●", "○", "·", "✦", "✓"];
   }
 
   function pairSymbols(leftId, rightId) {
@@ -3993,6 +4334,10 @@
     validateChessAttack: validateChessAttack,
     validateGoCaptureMax: validateGoCaptureMax,
     validateGoLiberties: validateGoLiberties,
+    validateOthelloBestFlip: validateOthelloBestFlip,
+    validateOthelloMarkAllFlips: validateOthelloMarkAllFlips,
+    othelloFlipsForMove: othelloFlipsForMove,
+    othelloMoveScores: othelloMoveScores,
     sudokuDigitsFromBoard: sudokuDigitsFromBoard,
     isValidMiniSudokuDigits: isValidMiniSudokuDigits,
     findSudokuSingleRepairs: findSudokuSingleRepairs,

@@ -69,6 +69,12 @@
   }
 
   function typeMatchesFilter(type, filter) {
+    if (filter === "go") {
+      return type.sourceWorld === "Go";
+    }
+    if (filter === "othello") {
+      return type.sourceWorld === "Othello";
+    }
     if (filter === "sudoku") {
       return type.sourceWorld === "Sudoku";
     }
@@ -107,7 +113,7 @@
   }
 
   function renderSymbolPacks() {
-    var packs = ["sudoku", "minesweeper", "animals", "food", "kitchen", "music", "sky", "sports", "workshop", "household"];
+    var packs = ["go", "othello", "sudoku", "minesweeper", "animals", "food", "kitchen", "music", "sky", "sports", "workshop", "household"];
 
     labSymbols.innerHTML =
       "<h2 class=\"lab-section-title\">Symbol packs</h2>" +
@@ -247,6 +253,22 @@
       return "<div><dt>Liberties</dt><dd>" + escapeHtml(getAnswerIndices(round).map(function (index) {
         return "cell " + (index + 1);
       }).join(", ")) + "</dd></div>";
+    }
+
+    if (type.sourceWorld === "Othello") {
+      var othelloMeta = "";
+      if (round.choiceScores) {
+        othelloMeta = round.choiceScores.filter(function (score) {
+          return score.score > 0;
+        }).map(function (score) {
+          return "cell " + (score.index + 1) + ": " + score.score;
+        }).join(", ");
+      } else {
+        othelloMeta = getAnswerIndices(round).map(function (index) {
+          return "cell " + (index + 1);
+        }).join(", ");
+      }
+      return "<div><dt>Othello</dt><dd>" + escapeHtml(othelloMeta) + "</dd></div>";
     }
 
     if (round.answerMode === "twoStep") {
