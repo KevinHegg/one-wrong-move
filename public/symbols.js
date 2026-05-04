@@ -102,6 +102,14 @@
     makeSymbol("go-territory", "□", "territory marker", "go", ["territory"], "territory")
   ];
 
+  var othello = [
+    makeSymbol("othello-black", "●", "black disc", "othello", ["disc", "black", "capture"], "black", { displayKind: "unicode" }),
+    makeSymbol("othello-white", "○", "white disc", "othello", ["disc", "white", "capture"], "white", { displayKind: "unicode" }),
+    makeSymbol("othello-empty", "·", "empty square", "othello", ["empty", "move"], "empty", { displayKind: "text" }),
+    makeSymbol("othello-marked-move", "✦", "marked move square", "othello", ["move", "marked"], "move", { displayKind: "unicode" }),
+    makeSymbol("othello-flip", "✓", "disc that flips", "othello", ["answer", "flip"], "flip", { displayKind: "unicode" })
+  ];
+
   var logic = [
     makeSymbol("logic-0", "0", "logic zero", "logic", ["input", "output", "false"], "0", { value: 0 }),
     makeSymbol("logic-1", "1", "logic one", "logic", ["input", "output", "true"], "1", { value: 1 }),
@@ -302,7 +310,7 @@
     makeSymbol("divider", "•", "divider", "layout", ["divider"], "divider")
   ];
 
-  var allSymbols = suits.concat(chess, checkers, go, logic, dice, sudoku, minesweeper, ecology, food, kitchen, music, sky, sports, workshop, household, directions, hours, abstract);
+  var allSymbols = suits.concat(chess, checkers, go, othello, logic, dice, sudoku, minesweeper, ecology, food, kitchen, music, sky, sports, workshop, household, directions, hours, abstract);
   var symbolMap = {};
   allSymbols.forEach(function (symbol) {
     symbolMap[symbol.id] = symbol;
@@ -361,6 +369,7 @@
       chess: chess,
       checkers: checkers,
       go: go,
+      othello: othello,
       logic: logic,
       dice: dice,
       sudoku: sudoku,

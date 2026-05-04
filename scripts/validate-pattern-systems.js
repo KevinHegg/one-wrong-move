@@ -6,7 +6,7 @@ const path = require("path");
 const puzzles = require("../public/puzzles.js");
 const scoring = require("../public/scoring.js");
 
-const RETIRED_DAILY_IDS = new Set(["rule-rows", "conveyor-shift", "knight-path"]);
+const RETIRED_DAILY_IDS = new Set(["rule-rows", "conveyor-shift", "knight-path", "maze-exit"]);
 const REQUIRED_ACTIVE_IDS = new Set([
   "card-straight",
   "suit-cycle",
@@ -20,8 +20,9 @@ const REQUIRED_ACTIVE_IDS = new Set([
   "chess-attack",
   "go-capture-max",
   "go-liberties",
+  "othello-best-flip",
+  "othello-mark-all-flips",
   "yahtzee-fix",
-  "maze-exit",
   "maze-key-exit",
   "scrabble-cross",
   "tetris-fit",
@@ -149,7 +150,7 @@ function validateAllTypes() {
   REQUIRED_ACTIVE_IDS.forEach((id) => {
     assert(activeIds.has(id), `Required production puzzle type missing: ${id}`);
   });
-  ["rule-rows", "conveyor-shift", "knight-path"].forEach((id) => {
+  ["rule-rows", "conveyor-shift", "knight-path", "maze-exit"].forEach((id) => {
     assert(retiredTypes.some((type) => type.id === id), `Expected retired lab-only puzzle type missing: ${id}`);
   });
 

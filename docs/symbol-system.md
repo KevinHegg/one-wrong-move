@@ -58,9 +58,9 @@ The renderer uses the glyph as the main visual and the label for chips, compact 
 
 ## Packs
 
-Production packs include ecology, food and ingredients, kitchen tools, animals by habitat, plants/fruits/vegetables, music, weather/space, sports/games, workshop tools, household objects, relationship pairs, cards, chess, dice, dominoes, Go, logic, Sudoku digits, Minesweeper clues/flags/mines, and maze labels.
+Production packs include ecology, food and ingredients, kitchen tools, animals by habitat, plants/fruits/vegetables, music, weather/space, sports/games, workshop tools, household objects, relationship pairs, cards, chess, dice, dominoes, Go, Othello, logic, Sudoku digits, Minesweeper clues/flags/mines, and maze labels.
 
-Sudoku symbols are plain digits with accessible labels such as "Sudoku digit 3." Minesweeper symbols include hidden squares, flags, bombs for answer reveal, and clue numbers. Active Minesweeper boards show hidden candidates and clue numbers; bombs are not shown until feedback or lab answer reveal.
+Sudoku symbols are plain digits with accessible labels such as "Sudoku digit 3." Minesweeper symbols include hidden squares, flags, bombs for answer reveal, and clue numbers. Active Minesweeper boards show hidden candidates and clue numbers; bombs are not shown until feedback or lab answer reveal. Othello symbols use filled black discs, hollow white discs, empty intersections, and a marked move glyph with ARIA labels such as "Othello white disc" or "marked Othello move square."
 
 Theme packs group symbols into fair category rows:
 

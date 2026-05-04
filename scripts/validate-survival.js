@@ -7,8 +7,8 @@ const path = require("path");
 const puzzles = require("../public/puzzles.js");
 const scoring = require("../public/scoring.js");
 
-const RETIRED = new Set(["rule-rows", "conveyor-shift", "knight-path"]);
-const REQUIRED_TYPES = new Set(["yahtzee-fix", "maze-exit", "maze-key-exit", "scrabble-cross", "tetris-fit", "chess-attack", "go-capture-max", "go-liberties"]);
+const RETIRED = new Set(["rule-rows", "conveyor-shift", "knight-path", "maze-exit"]);
+const REQUIRED_TYPES = new Set(["yahtzee-fix", "maze-key-exit", "scrabble-cross", "tetris-fit", "chess-attack", "go-capture-max", "go-liberties", "othello-best-flip", "othello-mark-all-flips"]);
 
 function assert(condition, message) {
   if (!condition) {
@@ -150,8 +150,9 @@ REQUIRED_TYPES.forEach((type) => assert(seenTypes.has(type), `Survival stream mi
 validateSpecific("chess-attack", validateChess);
 validateSpecific("go-capture-max", validateGoCapture);
 validateSpecific("go-liberties", validateGoLiberties);
+validateSpecific("othello-best-flip", (round) => assert(puzzles.validateOthelloBestFlip(round).valid, "Othello Best Flip needs one best move"));
+validateSpecific("othello-mark-all-flips", (round) => assert(puzzles.validateOthelloMarkAllFlips(round).valid && round.answerIndices.length >= 2, "Othello Mark All Flips needs a flip set"));
 validateSpecific("yahtzee-fix", (round) => assert(round.answerIndices.length === 2, "Yahtzee Fix needs exactly two dice"));
-validateSpecific("maze-exit", (round) => assert(puzzles.validateMazeExit(round).answers.length === 1, "Maze Exit needs one reachable exit"));
 validateSpecific("maze-key-exit", (round) => assert(round.answerSteps.length === 2, "Maze Key Exit needs one key/exit pair"));
 validateSpecific("scrabble-cross", (round) => assert(round.answerSteps.length === 2, "Scrabble Cross needs one square/tile pair"));
 validateSpecific("tetris-fit", (round) => assert(round.answerIndices.length === 4, "Tetris Fit needs four placement cells"));

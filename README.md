@@ -101,6 +101,8 @@ The survival stream selects active production puzzle types from a deterministic 
 - Chess Attack
 - Go Capture Max
 - Go Liberties
+- Othello Best Flip
+- Othello Mark All Flips
 - Logic Gate Row
 - Domino Chain
 - Dice Sum
@@ -109,7 +111,6 @@ The survival stream selects active production puzzle types from a deterministic 
 - Minesweeper Forced Mine
 - Minesweeper Mark All
 - Yahtzee Fix
-- Maze Exit
 - Maze Key Exit
 - Scrabble Cross
 - Mini Crossword Fill
@@ -131,9 +132,17 @@ The survival stream selects active production puzzle types from a deterministic 
 - Animal Food Web
 - Compass Rose
 
-Rule Rows, Conveyor Shift, and Knight Path remain in the lab as retired/backlog puzzle types, but they are no longer selected for Ladder Run or Three-Set Free Play. They were too easy or less satisfying than the richer source-world puzzles.
+Rule Rows, Conveyor Shift, Knight Path, and Maze Exit remain in the lab as retired/backlog puzzle types, but they are no longer selected for Ladder Run or Three-Set Free Play. Rule Rows and Conveyor Shift were too scan-heavy, Knight Path was less satisfying than Chess Attack, and Maze Exit was too obvious to carry normal play.
 
-Puzzle selection and board generation use a deterministic seed based on `YYYY-MM-DD`, so everyone gets the same daily stream for the same attempt. The selector avoids immediate repeats, rotates source worlds, avoids back-to-back card/Go/movement families when possible, and keeps retired puzzles out of the main run.
+Puzzle selection and board generation use a deterministic seed based on `YYYY-MM-DD`, so everyone gets the same daily stream for the same attempt. The selector avoids immediate repeats, rotates source worlds, avoids back-to-back card/Go/Othello/movement families when possible, and keeps retired puzzles out of the main run.
+
+## Mini Go And Othello
+
+The board-game capture family now has two mini Go puzzles and two mini Othello/Reversi puzzles.
+
+**Go Capture Max** asks Black to play the empty point that captures the most white stones. **Go Liberties** asks for every liberty of a marked group.
+
+**Othello Best Flip** asks Black to choose the legal move that flips the most white discs. **Othello Mark All Flips** marks Black's move and asks the player to select every white disc that would flip. The Othello validator computes legal straight-line sandwich captures in all eight directions.
 
 ## Sudoku And Minesweeper
 
@@ -205,6 +214,7 @@ node scripts/validate-freeplay.js
 node scripts/validate-word-puzzles.js
 node scripts/validate-symbol-display.js
 node scripts/validate-sudoku-minesweeper.js
+node scripts/validate-othello.js
 ```
 
 ## Netlify Deploy Settings

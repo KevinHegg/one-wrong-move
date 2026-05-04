@@ -100,7 +100,7 @@ The survival selector uses deterministic randomness from the date and session at
 - no Rule Rows, Conveyor Shift, or Knight Path in daily play
 - no more than one abstract glyph puzzle
 - no more than one movement-path puzzle when alternatives exist
-- no duplicate card or Go family when alternatives exist
+- no duplicate card, Go, Othello, or capture-board family when alternatives exist
 - at least one real-world source-world puzzle
 - difficulty escalation: levels 1-3 are approachable, levels 4-8 are medium, and levels 9+ lean harder
 
@@ -134,8 +134,9 @@ The survival selector uses deterministic randomness from the date and session at
 | Checkers Jump | Checkers | identifyOne | 3 | Diagonal movement | Numbered checkers must move diagonally. |
 | Go Capture Max | Go | chooseOne | 4 | Capture counting | Black to play; choose the move that captures the most white stones. |
 | Go Liberties | Go | multiSelect | 4 | Orthogonal adjacency | Select every liberty of the marked group. |
+| Othello Best Flip | Othello | chooseOne | 3 | Sandwich capture counting | Choose the legal Black move that flips the most white discs. |
+| Othello Mark All Flips | Othello | multiSelect | 3 | Directional capture tracing | Black plays the marked move; select every white disc that flips. |
 | Yahtzee Fix | Yahtzee | multiSelect | 3 | Category repair | Select the exact two dice that break a five-dice category. |
-| Maze Exit | Maze | chooseOne | 2 | Reachability | Trace from S and choose the reachable exit. |
 | Maze Key Exit | Maze | twoStep | 3 | Key-route pairing | Choose the reachable key and the exit it opens. |
 | Scrabble Cross | Words | twoStep | 3 | Word crossing | Choose the square and rack tile that make valid crossing words. |
 | Mini Crossword Fill | Words | twoStep | 2 | Crossing words | Choose the blank and rack letter that complete both words. |
@@ -152,6 +153,7 @@ The survival selector uses deterministic randomness from the date and session at
 | Rule Rows | Too easy to solve by diagonal scanning; often felt like filling a missing symbol. |
 | Conveyor Shift | Also rewarded visual phase-scanning more than satisfying reasoning. |
 | Knight Path | Valid but narrow; Chess Attack gives chess movement more variety and texture. |
+| Maze Exit | Too obvious as a single-route trace; kept in the lab as a route-map baseline. |
 
 ## Chess Attack
 
@@ -183,6 +185,16 @@ Go uses simplified rules:
 **Go Liberties** is a `multiSelect` puzzle. A group of 2-4 stones is marked, and the player selects every empty orthogonal liberty. The board includes diagonal decoys because diagonals do not count. The correct submission must exactly match the liberty set.
 
 Go rendering now uses a board-grid treatment rather than generic tiles. Black stones are filled circles, white stones are hollow circles with strong outlines, and marked groups receive a visible ring. Empty intersections remain clearly tappable without pre-marking active liberties.
+
+## Othello Puzzles
+
+Othello/Reversi adds a second compact capture system. The game uses only the local move rule: Black places a disc on an empty square, and straight lines of adjacent white discs flip only when they are sandwiched between the new black disc and an existing black disc. Horizontal, vertical, and diagonal lines all count.
+
+**Othello Best Flip** is `chooseOne`: only legal Black moves are clickable, and exactly one legal move flips the most white discs. Decoy legal moves remain present so the player must count captures rather than simply find the only move.
+
+**Othello Mark All Flips** is `multiSelect`: Black's move square is marked, and the player selects every white disc that would flip before submitting. Selection clicks are planning clicks; the committed set must exactly match the validator's eight-direction capture result.
+
+Othello is placed in mid Ladder and Free Play, but the selector avoids placing it directly next to Go or another capture-board puzzle when alternatives exist.
 
 ## Sudoku Puzzles
 
@@ -218,7 +230,7 @@ Minesweeper selection clicks are planning clicks for multi-select puzzles. In La
 
 **Yahtzee Fix** asks the player to repair a visible five-dice category by selecting exactly two wrong dice. It supports categories such as full house, four of a kind, and large straight while keeping the dice values small and readable.
 
-**Maze Exit** turns the 5x5 board into a tiny route map. The player traces from `S` through open paths and chooses the one reachable exit.
+**Maze Exit** previously turned the 5x5 board into a tiny route map. It was retired from Ladder and Free Play because the reachable exit was too obvious; it remains in the lab as a simple route-map baseline.
 
 **Maze Key Exit** is a two-step puzzle: choose the reachable key, then choose the exit it opens. Selection is tentative until the player commits the move.
 
@@ -249,7 +261,7 @@ Every puzzle type has a generator and validator. The validator checks that:
 - the puzzle has briefing copy, example data, symbols, explanation, hint, evidence, and break signature
 - retired types are not selected for the daily mix
 
-The validation scripts test all registered types directly, 300 date seeds, five same-session attempts, the first 50 Ladder levels per date/attempt pair, and the Three-Set Free Play selector. Go Capture Max, Go Liberties, Chess Attack, Maze Exit, targeting behavior, word puzzles, and the Ladder stream have independent domain or stream validators.
+The validation scripts test all registered types directly, 300 date seeds, five same-session attempts, the first 50 Ladder levels per date/attempt pair, and the Three-Set Free Play selector. Go Capture Max, Go Liberties, Othello Best Flip, Othello Mark All Flips, Chess Attack, targeting behavior, word puzzles, and the Ladder stream have independent domain or stream validators.
 
 ## Session Variation
 

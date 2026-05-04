@@ -30,6 +30,7 @@ for (let day = 0; day < 300; day += 1) {
     assert(set.levels.every((level) => level.difficulty <= 3), `Free Play selected a brutal high-difficulty puzzle for ${dateKey}`);
     assert(set.levels.some((level) => level.difficulty <= 2), `Free Play needs at least one easier puzzle for ${dateKey}`);
     assert(set.levels.every((level) => !level.retired), `Free Play selected a retired puzzle for ${dateKey}`);
+    assert(set.levels.every((level) => level.id !== "maze-exit"), `Free Play selected retired Maze Exit for ${dateKey}`);
 
     set.levels.forEach((level) => {
       seenModes.add(level.answerMode);
@@ -49,9 +50,14 @@ const config = globalThis.OWM_CONFIG;
 assert(config.freePlayLevelTimeLimitSeconds === 0, "Free Play should have no fatal timeout by default");
 
 const gameSource = fs.readFileSync(path.join(__dirname, "../public/game.js"), "utf8");
+const freePlayBlock = gameSource.slice(gameSource.indexOf("function showFreePlayResults"), gameSource.indexOf("function endRun"));
 assert(gameSource.includes("Three-Set Free Play"), "Free Play UI copy missing");
 assert(gameSource.includes("recordFreePlayMistake"), "Free Play wrong attempts should add mistakes instead of ending the run");
 assert(gameSource.includes("buildFreePlayShareText"), "Free Play share text builder missing");
 assert(gameSource.includes("Scoring.calculateScore"), "Free Play must use lower-is-better scoring utility");
+assert(freePlayBlock.includes("Lower score is better"), "Free Play result screen must say lower score is better");
+assert(freePlayBlock.includes("Score = rounded-up solving time + 10s per mistake"), "Free Play result screen must explain the time-score formula");
+assert(!freePlayBlock.includes("More levels is better"), "Free Play result screen must not use Ladder ranking copy");
+assert(!freePlayBlock.includes("Ended on"), "Free Play result screen must not use Ladder ending copy");
 
 console.log("Validated Three-Set Free Play generation, scoring, wrong-attempt behavior, share text, and default timer policy.");

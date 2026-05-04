@@ -54,8 +54,9 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Checkers Jump | Checkers | identifyOne | 3 | Numbered diagonal movement | Movement validator |
 | Go Capture Max | Go / baduk | chooseOne | 4 | Best move captures most white stones | Independent capture validator |
 | Go Liberties | Go / baduk | multiSelect | 4 | Select all liberties of marked group | Independent liberty validator |
+| Othello Best Flip | Othello / Reversi | chooseOne | 3 | Legal move flips the most discs | Eight-direction flip validator |
+| Othello Mark All Flips | Othello / Reversi | multiSelect | 3 | Select every disc flipped by a marked move | Eight-direction flip-set validator |
 | Yahtzee Fix | Yahtzee / dice | multiSelect | 3 | Select two dice that break a visible category | Exact answer-set validator |
-| Maze Exit | Maze / map | chooseOne | 2 | Trace from S to the one reachable exit | Reachability validator |
 | Maze Key Exit | Maze / map | twoStep | 3 | Choose the reachable key and matching exit | Two-step answer validator |
 | Scrabble Cross | Word tiles | twoStep | 3 | Place one rack tile to form valid crossing words | Two-step answer validator |
 | Mini Crossword Fill | Crossword / words | twoStep | 2 | Place one rack letter into one blank crossing | Word uniqueness validator |
@@ -72,6 +73,7 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Rule Rows | Abstract grammar | Retired from daily | Too easy to solve by diagonal scanning and missing-symbol completion. |
 | Conveyor Shift | Abstract grammar | Retired from daily | Too easy to solve by phase scanning rather than deeper reasoning. |
 | Knight Path | Chess | Retired from daily | Valid but narrow; Chess Attack gives piece variety and better texture. |
+| Maze Exit | Maze / map | Retired from daily | Too obvious as a single-route trace; kept as a lab baseline. |
 
 ## Candidate Pattern Systems
 
@@ -92,6 +94,8 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Checkers Jump | Checkers | Numbered checkers | Diagonal movement | Orthogonal step, wrong diagonal direction, fake jump | 3 | Implemented |
 | Go Capture Max | Go / baduk | Black stones, white stones, empty points | Best move captures most stones | Tie trap, non-capture, wrong last liberty | 4 | Implemented |
 | Go Liberties | Go / baduk | Marked group and empty points | Select all orthogonal liberties | Missing liberty, diagonal false liberty, extra non-liberty | 4 | Implemented |
+| Othello Best Flip | Othello / Reversi | Black discs, white discs, empty moves | Choose legal move with highest flip count | Tie for best, illegal empty, lower flip count | 3 | Implemented |
+| Othello Mark All Flips | Othello / Reversi | Marked move, white discs, black anchors | Select all discs flipped by marked move | Missing flip, extra non-flip, diagonal misread | 3 | Implemented |
 | Go Save Group | Go / baduk | Atari group and liberties | Choose saving move or capture threat | Self-atari, wrong liberty, false capture | 4 | Backlog |
 | Logic Gate Row | Digital logic | 0, 1, AND, OR, XOR, NAND | Input/gate/output truth row | Wrong AND, OR, XOR, NAND output | 2 | Implemented |
 | Circuit Trace | Electronics | Wires, gates, outputs | Signals flow through a tiny circuit | Broken wire, inverted output, impossible gate | 4 | Backlog |
@@ -105,7 +109,7 @@ A 5x5 board is small enough for phones and large enough for evidence. It can sho
 | Minesweeper Safe Square | Minesweeper | Hidden squares, clue numbers | One hidden square is safe in all layouts | False safety, ambiguous safe cell | 4 | Backlog |
 | Yahtzee Fix | Yahtzee / dice | Five dice and category labels | Select the two dice that prevent the category | Ambiguous pair, wrong category, near-full-house decoy | 3 | Implemented |
 | Train Route | Transit maps | S, F, track straights and curves | One continuous connected route | Broken turn, dead end, wrong straight, bad station exit | 3 | Implemented |
-| Maze Exit | Maze / maps | Start, walls, paths, exits | Trace reachable route | Unreachable exit, blocked bridge, wrong branch | 2 | Implemented |
+| Maze Exit | Maze / maps | Start, walls, paths, exits | Trace reachable route | Unreachable exit, blocked bridge, wrong branch | 2 | Retired / lab only |
 | Maze Key Exit | Maze / maps | Start, keys, exits, walls | Choose reachable key plus opened exit | Wrong key, wrong exit, unreachable pair | 3 | Implemented |
 | Scrabble Cross | Word tiles | Board letters, blank square, rack letters | One tile makes crossing words | Bad horizontal word, bad vertical word, wrong square | 3 | Implemented |
 | Mini Crossword Fill | Crossword / words | Fixed letters, blank square, rack letters | One rack letter completes both crossing words | Wrong blank, wrong letter, one invalid crossing | 2 | Implemented |
@@ -215,6 +219,16 @@ Go Capture Max is `chooseOne`: the player taps the empty point that captures the
 
 Go Liberties is `multiSelect`: the player selects every liberty of the marked group and submits. Marked groups are usually size 2-4, and the correct liberty set is exact. Diagonal empty points are intentionally used as decoys because they are not liberties.
 
+## Othello Design Notes
+
+Othello/Reversi puzzles use the one-move sandwich rule rather than a full game tree. A legal Black move flips contiguous white discs in any straight horizontal, vertical, or diagonal line that ends at an existing black disc.
+
+Othello Best Flip is `chooseOne`: legal move cells are the only active targets, and exactly one legal move has the highest flip count. The board includes lower-value legal decoys so the task remains capture counting, not simply finding the only legal move.
+
+Othello Mark All Flips is `multiSelect`: the move square is marked, white discs are selectable, and the submitted set must exactly equal every flipped disc. The validator computes flips in all eight directions from the marked move.
+
+The Ladder and Free Play selectors avoid placing Othello directly next to Go or another capture-board puzzle when alternatives exist.
+
 ## Yahtzee Notes
 
 Yahtzee Fix uses five-dice rows with a visible category. The implemented version asks for exactly two dice that prevent a category such as a full house or large straight. This creates a compact multi-select reasoning task without requiring poker-like card knowledge or long arithmetic.
@@ -237,7 +251,7 @@ Both validators enumerate mine placements against the clue numbers. This keeps t
 
 ## Maze Notes
 
-Maze Exit uses a 5x5 route map with a start, walls, paths, and multiple exits. The player chooses the single exit reachable by open paths.
+Maze Exit uses a 5x5 route map with a start, walls, paths, and multiple exits. It is now retired from Ladder and Free Play because the answer was too visually obvious; it remains in the lab as a simple route-map baseline and validator example.
 
 Maze Key Exit adds a second committed choice: choose the reachable key, then choose the exit it opens. The two-step answer mode keeps this legible in the main game and in the lab.
 
@@ -288,7 +302,8 @@ The current strongest validators encode domain logic independently:
 - Chess Attack computes legal attacks from piece positions.
 - Go Capture Max computes capture scores from the board.
 - Go Liberties computes the marked group's liberties from the board.
-- Maze Exit computes reachability from the visible walls and paths.
+- Othello Best Flip and Othello Mark All Flips compute sandwich captures in all eight directions.
+- Maze Exit computes reachability from the visible walls and paths, but is lab-only.
 - Targeting validation checks that row, column, output, exact-cell, multi-select, and two-step instructions match enabled click targets.
 - Free Play validation checks the three-puzzle selector, mistake behavior, and lower-is-better scoring formula.
 - Word-puzzle validation checks curated vocabulary, rack separation, and unique square/letter or blank/letter solutions.

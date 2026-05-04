@@ -41,13 +41,21 @@
   var feedbackTitle = document.getElementById("feedbackTitle");
   var feedbackText = document.getElementById("feedbackText");
   var resultPanel = document.getElementById("resultPanel");
+  var solvedLabel = document.getElementById("solvedLabel");
   var solvedText = document.getElementById("solvedText");
+  var finalTimeLabel = document.getElementById("finalTimeLabel");
   var finalTimeText = document.getElementById("finalTimeText");
+  var baseScoreLabel = document.getElementById("baseScoreLabel");
   var baseScoreText = document.getElementById("baseScoreText");
+  var finalMistakeLabel = document.getElementById("finalMistakeLabel");
   var finalMistakeText = document.getElementById("finalMistakeText");
+  var penaltyLabel = document.getElementById("penaltyLabel");
   var penaltyText = document.getElementById("penaltyText");
+  var scoreFormulaLabel = document.getElementById("scoreFormulaLabel");
   var scoreFormulaText = document.getElementById("scoreFormulaText");
+  var scoreLabel = document.getElementById("scoreLabel");
   var scoreText = document.getElementById("scoreText");
+  var scoreHintText = document.getElementById("scoreHintText");
   var sharePreview = document.getElementById("sharePreview");
   var startButton = document.getElementById("startButton");
   var freePlayButton = document.getElementById("freePlayButton");
@@ -375,11 +383,12 @@
   function showFreePlayResults() {
     var score = Scoring.calculateScore(getElapsedMs(), state.mistakes, 10);
 
+    setFreePlayResultLabels();
     roundText.textContent = "Complete";
     mistakeText.textContent = "Mistakes " + state.mistakes;
     roundName.textContent = "Three-Set Free Play complete";
     ruleText.textContent = "Solved 3 of 3";
-    instructionText.textContent = "Lower is better: rounded-up solving time plus 10 seconds per mistake.";
+    instructionText.textContent = "Lower score is better. Score = rounded-up solving time + 10s per mistake.";
     solvedText.textContent = "3 of 3";
     finalTimeText.textContent = formatClock(getElapsedMs());
     baseScoreText.textContent = score.baseSeconds + "s";
@@ -411,6 +420,7 @@
   function showRunOver(level) {
     var score = survivalScore();
 
+    setLadderResultLabels();
     roundText.textContent = "Run over";
     mistakeText.textContent = "Wrong Moves " + state.wrongMoves + "/1";
     roundName.textContent = "Run ended";
@@ -425,6 +435,28 @@
     scoreFormulaText.textContent = levelLimitSeconds + "s/level";
     sharePreview.value = buildShareText(score);
     resultPanel.hidden = false;
+  }
+
+  function setFreePlayResultLabels() {
+    solvedLabel.textContent = "Solved";
+    finalTimeLabel.textContent = "Active time";
+    baseScoreLabel.textContent = "Base time";
+    scoreLabel.textContent = "Score";
+    scoreHintText.textContent = "Lower score is better. Score = rounded-up solving time + 10s per mistake.";
+    finalMistakeLabel.textContent = "Mistakes";
+    penaltyLabel.textContent = "Penalty";
+    scoreFormulaLabel.textContent = "Formula";
+  }
+
+  function setLadderResultLabels() {
+    solvedLabel.textContent = "Levels";
+    finalTimeLabel.textContent = "Run time";
+    baseScoreLabel.textContent = "Ended on";
+    scoreLabel.textContent = "Result";
+    scoreHintText.textContent = "More levels is better. Ties go to faster runs.";
+    finalMistakeLabel.textContent = "End reason";
+    penaltyLabel.textContent = "Last puzzle";
+    scoreFormulaLabel.textContent = "Limit";
   }
 
   function renderBriefing(level) {
