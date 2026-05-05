@@ -311,6 +311,23 @@ The current strongest validators encode domain logic independently:
 
 Expected-board validators remain useful for controlled pattern systems, but more production puzzle types should graduate to independent domain validators over time.
 
+## Playtesting Feedback Strategy
+
+Validator certainty is necessary, but it is not sufficient. The lab feedback upgrade adds the human layer: whether a valid puzzle feels fun, fair, clear, memorable, too easy, too hard, or worth cutting.
+
+Each feedback record captures puzzle identity, source world, answer mode, target type, difficulty, seed, session attempt, level number, break signature, mode context, blind-solve result, wrong attempts, ratings, decision, tags, notes, confusion reason, and suggested change.
+
+The dashboard turns those records into production recommendations:
+
+- **Cut candidates**: low fun plus low clarity, or repeated cut decisions.
+- **Too easy candidates**: low felt difficulty and weak fun.
+- **Too hard candidates**: brutal felt difficulty combined with low clarity.
+- **Keep candidates**: high fun and fairness.
+- **Free Play candidates**: easy or medium puzzles with high clarity.
+- **Ladder candidates**: medium or hard puzzles with strong fairness and low ambiguity.
+
+This keeps the pool edited like a puzzle magazine rather than a warehouse of technically valid generators. Some systems belong in Ladder, some in Free Play, some in the lab, and some should be retired.
+
 ## Why Real-World Systems Help
 
 Real-world systems make puzzles stickier because the symbols have consequences. A knight invites movement reasoning. A domino invites matching. A logic gate invites evaluation. A Go stone invites liberty counting. A food chain invites ordering. These systems create a small act of recognition before the solve, which makes the violation feel clever instead of arbitrary.

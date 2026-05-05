@@ -180,6 +180,20 @@ http://localhost:8080/lab.html
 
 The lab renders production puzzle types separately from retired lab-only types. Each card shows source world, difficulty, answer mode, target type, clickable/disabled target counts, symbol bank, sample board, hidden answer toggle, break signature, evidence string, and validator status. It also includes a Ladder stream preview, a Three-Set Free Play preview, symbol pack inventory, and theme pack inventory.
 
+The lab also works as a local playtesting notebook. It stores feedback only in browser `localStorage` under `oneWrongMove.labFeedback.v1`; there is no backend, analytics, account, or personal data flow.
+
+Lab feedback tools include:
+
+- Explore filters for puzzle name, source world, answer mode, target type, active/retired status, reviewed state, decision, tag, and sort order.
+- Review Queue presets for all active puzzles, the current Ladder stream, the current Free Play set, hard puzzles, confusing puzzles, object/theme puzzles, board-game puzzles, word puzzles, and number puzzles.
+- Try Blind mode for sandbox solving without affecting Ladder or Free Play scores.
+- Ratings for fun, felt difficulty, clarity, and fairness.
+- Decisions: Keep, Tweak, Cut, and Needs more testing.
+- Quick tags such as too easy, too hard, confusing, boring, unfair, ambiguous target, visually excellent, great for Ladder, great for Free Play, and lab only.
+- Export tools for JSON, CSV, Markdown summary, and a ChatGPT-ready feedback prompt.
+
+More detail lives in `docs/lab-feedback.md`.
+
 ## Run Locally
 
 Open `public/index.html` directly in a browser.

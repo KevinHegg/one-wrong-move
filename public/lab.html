@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>One Wrong Move Puzzle Lab</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css?v=013">
-    <script src="config.js?v=013" defer></script>
-    <script src="symbols.js?v=013" defer></script>
-    <script src="scoring.js?v=013" defer></script>
-    <script src="puzzles.js?v=013" defer></script>
-    <script src="lab.js?v=013" defer></script>
+    <link rel="stylesheet" href="style.css?v=015">
+    <script src="config.js?v=015" defer></script>
+    <script src="symbols.js?v=015" defer></script>
+    <script src="scoring.js?v=015" defer></script>
+    <script src="puzzles.js?v=015" defer></script>
+    <script src="lab.js?v=015" defer></script>
   </head>
   <body class="lab-page">
     <main class="lab-shell" aria-label="One Wrong Move puzzle lab">
@@ -50,12 +50,120 @@
         <button id="labRegenerate" class="primary-button" type="button">Regenerate</button>
       </section>
 
-      <section id="labSurvival" class="lab-section" aria-label="Ladder stream preview"></section>
-      <section id="labFreePlay" class="lab-section" aria-label="Free Play preview"></section>
-      <section id="labSymbols" class="lab-section" aria-label="Symbol pack inventory"></section>
-      <section id="labThemes" class="lab-section" aria-label="Theme pack inventory"></section>
+      <nav class="lab-nav" aria-label="Lab sections">
+        <a href="#labExplore">Explore</a>
+        <a href="#labReviewQueue">Review Queue</a>
+        <a href="#labFeedbackSummary">Feedback Summary</a>
+        <a href="#labExport">Export</a>
+      </nav>
 
-      <section id="labList" class="lab-list" aria-live="polite"></section>
+      <section id="labExplore" class="lab-section lab-panel" aria-label="Explore puzzle samples">
+        <div class="lab-section-header">
+          <div>
+            <p class="round-name">Explore</p>
+            <h2 class="lab-section-title">Puzzle inventory</h2>
+          </div>
+          <p class="lab-briefing">Filter samples, inspect validators, try puzzles blind, and save local feedback.</p>
+        </div>
+
+        <section class="lab-controls lab-filter-grid" aria-label="Explore filters">
+          <label>
+            <span>Search</span>
+            <input id="labSearch" type="search" placeholder="Puzzle name">
+          </label>
+          <label>
+            <span>Source</span>
+            <select id="labSourceFilter">
+              <option value="">Any source</option>
+            </select>
+          </label>
+          <label>
+            <span>Answer mode</span>
+            <select id="labModeFilter">
+              <option value="">Any mode</option>
+              <option value="identifyOne">identifyOne</option>
+              <option value="chooseOne">chooseOne</option>
+              <option value="multiSelect">multiSelect</option>
+              <option value="twoStep">twoStep</option>
+            </select>
+          </label>
+          <label>
+            <span>Target type</span>
+            <select id="labTargetFilter">
+              <option value="">Any target</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="labStatusFilter">
+              <option value="">Active + retired</option>
+              <option value="active">Active</option>
+              <option value="retired">Retired / lab only</option>
+              <option value="ladder">Ladder eligible</option>
+              <option value="freeplay">Free Play eligible</option>
+            </select>
+          </label>
+          <label>
+            <span>Review</span>
+            <select id="labReviewFilter">
+              <option value="">Reviewed + unreviewed</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="unreviewed">Unreviewed</option>
+            </select>
+          </label>
+          <label>
+            <span>Decision</span>
+            <select id="labDecisionFilter">
+              <option value="">Any decision</option>
+              <option value="keep">Keep</option>
+              <option value="tweak">Tweak</option>
+              <option value="cut">Cut</option>
+              <option value="needsMoreTesting">Needs more testing</option>
+            </select>
+          </label>
+          <label>
+            <span>Tag</span>
+            <select id="labTagFilter">
+              <option value="">Any tag</option>
+            </select>
+          </label>
+          <label>
+            <span>Sort</span>
+            <select id="labSort">
+              <option value="name">Puzzle name</option>
+              <option value="difficulty">Difficulty</option>
+              <option value="fun">Fun rating</option>
+              <option value="clarity">Clarity rating</option>
+              <option value="reviews">Most reviewed</option>
+              <option value="newest">Newest feedback</option>
+              <option value="source">Source world</option>
+            </select>
+          </label>
+        </section>
+
+        <div class="lab-quick-actions" aria-label="Quick review presets">
+          <button type="button" class="secondary-button" data-review-preset="unreviewed">Review unreviewed</button>
+          <button type="button" class="secondary-button" data-review-preset="ladder">Review Ladder stream</button>
+          <button type="button" class="secondary-button" data-review-preset="freeplay">Review Free Play set</button>
+          <button type="button" class="secondary-button" data-review-preset="hard">Review hard puzzles</button>
+          <button type="button" class="secondary-button" data-review-preset="confusing">Review confusing</button>
+          <button type="button" class="secondary-button" data-review-preset="object">Object/theme</button>
+          <button type="button" class="secondary-button" data-review-preset="board">Board games</button>
+          <button type="button" class="secondary-button" data-review-preset="word">Word puzzles</button>
+          <button type="button" class="secondary-button" data-review-preset="number">Number puzzles</button>
+        </div>
+
+        <section id="labSurvival" class="lab-section" aria-label="Ladder stream preview"></section>
+        <section id="labFreePlay" class="lab-section" aria-label="Free Play preview"></section>
+        <section id="labSymbols" class="lab-section" aria-label="Symbol pack inventory"></section>
+        <section id="labThemes" class="lab-section" aria-label="Theme pack inventory"></section>
+
+        <section id="labList" class="lab-list" aria-live="polite"></section>
+      </section>
+
+      <section id="labReviewQueue" class="lab-section lab-panel" aria-label="Review queue"></section>
+      <section id="labFeedbackSummary" class="lab-section lab-panel" aria-label="Feedback summary"></section>
+      <section id="labExport" class="lab-section lab-panel" aria-label="Export lab feedback"></section>
     </main>
   </body>
 </html>

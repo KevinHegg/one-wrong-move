@@ -76,6 +76,30 @@ The game uses five explicit states:
 
 The board is hidden during intro and briefing. It appears only after **Start Level**, stays visible during correct feedback, and never reveals the next puzzle before the next briefing is started.
 
+## Lab Feedback Loop
+
+The lab now supports a deliberate playtesting loop, because the real design challenge is not just generating valid puzzles; it is learning which valid puzzles feel clever, fair, tense, memorable, or dull.
+
+Every sample can be tried blind inside the lab. Blind play records time to solve, wrong attempts, and whether the answer was shown before solving. That data is separate from Ladder and Free Play, so Kevin can poke at hard puzzles without contaminating normal scores.
+
+Each sample can be rated on four axes:
+
+- fun
+- felt difficulty
+- clarity
+- fairness
+
+The decision model is intentionally editorial: keep, tweak, cut, or needs more testing. Tags capture the most common puzzle-design failure modes: too easy, too hard, confusing, boring, unfair, ambiguous target, unclear instructions, too trivia-heavy, too much arithmetic, visually noisy, answer felt arbitrary, and similar tuning notes.
+
+This creates a practical feedback cycle:
+
+1. Generate a queue from active puzzles, Ladder levels, Free Play sets, or a specific source-world family.
+2. Try samples blind and save ratings.
+3. Use the summary dashboard to spot cut candidates, too-easy candidates, too-hard candidates, keep candidates, Free Play candidates, and Ladder candidates.
+4. Export a ChatGPT-ready prompt for the next tuning pass.
+
+All feedback is local-only browser storage. The game still has no backend or analytics.
+
 ## Timer And Survival Ranking
 
 The run timer measures active solving time only. It does not run during the intro, briefings, correct feedback, transitions, or completion. Each active level also has a configurable countdown, defaulting to 60 seconds. The countdown becomes visually urgent in the final 10 seconds.
